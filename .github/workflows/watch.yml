@@ -1,7 +1,10 @@
-
 name: Boat Race Watch
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/watch.yml"
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
@@ -24,7 +27,29 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install .
+      - name: Send setup test notification
+        if: github.event_name == 'push'
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          python - <<'PY'
+          import os
+          import requests
+
+          topic = os.environ["NTFY_TOPIC"]
+          requests.post(
+              "https://ntfy.sh",
+              json={
+                  "topic": topic,
+                  "title": "Boat Race Watch 接続テスト",
+                  "message": "GitHubからiPhoneへの通知接続に成功しました。現在は検証モードです。",
+                  "priority": 4,
+                  "tags": ["white_check_mark", "boat"],
+              },
+              timeout=20,
+          ).raise_for_status()
       - name: Check upcoming races
+        if: github.event_name != 'push'
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           SHADOW_MODE: "true"
