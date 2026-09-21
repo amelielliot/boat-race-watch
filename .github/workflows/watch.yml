@@ -1,1 +1,35 @@
 
+name: Boat Race Watch
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: boat-race-watch
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install .
+      - name: Check upcoming races
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          SHADOW_MODE: "true"
+          NOTIFY_SKIPS: "true"
+          MAX_PER_RACE: "2000"
+          MAX_PER_DAY: "5000"
+          MIN_EXPECTED_VALUE: "1.15"
+        run: python -m boat_watch.main
