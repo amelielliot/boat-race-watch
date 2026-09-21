@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+import requests
+
+from .config import Config
+from .data import DataError, fetch_programs, fetch_trifecta_odds, races_in_window
+from .model import decide
+from .notify import Ntfy
+
+JST = ZoneInfo("Asia/Tokyo")
+STADIUMS = {
+    1: "桐生", 2: "戸田", 3: "江戸川", 4: "平和島", 5: "多摩川", 6: "浜名湖",
+    7: "蒲郡", 8: "常滑", 9: "津", 10: "三国", 11: "びわこ", 12: "住之江",
+    13: "尼崎", 14: "鳴門", 15: "丸亀", 16: "児島", 17: "宮島", 18: "徳山",
+    19: "下関", 20: "若松", 21: "芦屋", 22: "福岡", 23: "唐津", 24: "大村",
+}
+
+
+def _race_key(now: datetime, race: dict) -> str:
+    return f"{now:%Y%m%d}-{int(race['stadium_number']):02d}-{int(race['race_number']):02d}"
+
+
+def _format(race: dict, decision, key: str, shadow: bool) -> tuple[str, str, int]:
+    stadium = STADIUMS.get(int(race["stadium_number"]), str(race["stadium_number"]))
+    race_no = int(race["race_number"])
+    prefix = "【検証中・買わない】" if shadow and decision.action == "BUY" else "【買い候補】"
+    if decision.action == "SKIP":
+        return (
+            f"【見送り】{stadium}{race_no}R",
+            "\n".join([f"理由：{'／'.join(decision.reasons)}", f"管理ID:{key};見送り"]),
+            2,
+        )
+    total = sum(bet.stake for bet in decision.bets)
+    lines = [f"{bet.combination}　{bet.stake:,}円（オッズ{bet.odds:.1f}／期待値{bet.expected_value:.2f}）" for bet in decision.bets]
+    lines += [f"理由：{'／'.join(decision.reasons)}", "投票前に公式サイトで欠場・進入・最新オッズを再確認", f"管理ID:{key};予定額:{total}"]
+    return f"{prefix}{stadium}{race_no}R", "\n".join(lines), 4
+
+
+def run(now: datetime | None = None) -> int:
+    config = Config()
+    now = (now or datetime.now(JST)).astimezone(JST)
+    session = requests.Session()
+    notifier = Ntfy(config.ntfy_topic, session)
+    try:
+        payload = fetch_programs(now.date(), session)
+    except Exception as exc:
+        print(f"開催データ取得失敗: {exc}")
+        return 1
+    races = races_in_window(payload, now, config.minutes_before_min, config.minutes_before_max)
+    if not races:
+        return 0
+    try:
+        used_keys, used_budget = notifier.used_keys_and_budget(now)
+    except Exception as exc:
+        print(f"通知履歴取得失敗（安全のため買い候補を停止）: {exc}")
+        used_keys, used_budget = set(), config.max_per_day
+
+    for race in races:
+        key = _race_key(now, race)
+        if key in used_keys:
+            continue
+        odds = None
+        preview = race.get("preview") or {}
+        # Only request the official odds page when the preview exists and severe-weather
+        # safety gates are not already known to fail.
+        if preview and float(preview.get("wind_speed") or 0) < config.max_wind_speed and float(preview.get("wave_height") or 0) < config.max_wave_height:
+            try:
+                odds = fetch_trifecta_odds(now.date(), int(race["stadium_number"]), int(race["race_number"]), session)
+            except (requests.RequestException, DataError, ValueError) as exc:
+                print(f"{key} オッズ取得失敗: {exc}")
+        remaining = max(0, config.max_per_day - used_budget)
+        decision = decide(race, odds, remaining, config)
+        if decision.action == "SKIP" and not config.notify_skips:
+            continue
+        title, message, priority = _format(race, decision, key, config.shadow_mode)
+        notifier.publish(title, message, priority)
+        if decision.action == "BUY":
+            used_budget += sum(bet.stake for bet in decision.bets)
+        used_keys.add(key)
+    return 0
+
+
+def main() -> None:
+    raise SystemExit(run())
+
+
+if __name__ == "__main__":
+    main()
