@@ -1,0 +1,1 @@
+"""BOAT RACE advisory watcher."""
