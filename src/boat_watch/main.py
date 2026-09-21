@@ -6,9 +6,10 @@ from zoneinfo import ZoneInfo
 import requests
 
 from .config import Config
-from .data import DataError, fetch_programs, fetch_trifecta_odds, races_in_window
+from .data import DataError, fetch_programs, fetch_trifecta_odds, iter_races, races_in_window
 from .model import decide
 from .notify import Ntfy
+from .results import RecordedBet, Settlement, settle_bet
 
 JST = ZoneInfo("Asia/Tokyo")
 STADIUMS = {
@@ -35,8 +36,54 @@ def _format(race: dict, decision, key: str, shadow: bool) -> tuple[str, str, int
         )
     total = sum(bet.stake for bet in decision.bets)
     lines = [f"{bet.combination}　{bet.stake:,}円（オッズ{bet.odds:.1f}／期待値{bet.expected_value:.2f}）" for bet in decision.bets]
-    lines += [f"理由：{'／'.join(decision.reasons)}", "投票前に公式サイトで欠場・進入・最新オッズを再確認", f"管理ID:{key};予定額:{total}"]
+    encoded_bets = ",".join(f"{bet.combination}@{bet.stake}" for bet in decision.bets)
+    lines += [
+        f"理由：{'／'.join(decision.reasons)}",
+        "投票前に公式サイトで欠場・進入・最新オッズを再確認",
+        f"管理ID:{key};予定額:{total};買い目:{encoded_bets}",
+    ]
     return f"{prefix}{stadium}{race_no}R", "\n".join(lines), 4
+
+
+def _format_result(record: RecordedBet, settlement: Settlement, daily_profit: int) -> tuple[str, str]:
+    stadium = STADIUMS.get(record.stadium_number, str(record.stadium_number))
+    label = "的中" if settlement.hit else "ハズレ"
+    payout_text = "／".join(
+        f"{combination} {amount:,}円" for combination, amount in settlement.winning_payouts.items()
+    )
+    bet_text = "／".join(f"{combination} {stake:,}円" for combination, stake in record.bets.items())
+    lines = [
+        f"結果：{payout_text}（3連単・100円あたり）",
+        f"通知買い目：{bet_text}",
+        f"仮想払戻：{settlement.return_amount:,}円",
+        f"レース収支：{settlement.profit:+,}円",
+        f"本日累計：{daily_profit:+,}円",
+        "検証成績（実購入ではありません）",
+        f"結果ID:{record.key};収支:{settlement.profit}",
+    ]
+    return f"【{label}】{stadium}{record.race_number}R", "\n".join(lines)
+
+
+def _notify_results(payload: dict, now: datetime, notifier: Ntfy, history: list[dict]) -> None:
+    records = notifier.recorded_bets(now, history)
+    settled_keys, daily_profit = notifier.settled_results(now, history)
+    races = {
+        (int(race["stadium_number"]), int(race["race_number"])): race
+        for race in iter_races(payload)
+    }
+    for key, record in records.items():
+        if key in settled_keys:
+            continue
+        race = races.get((record.stadium_number, record.race_number))
+        if race is None:
+            continue
+        settlement = settle_bet(record, race)
+        if settlement is None:
+            continue
+        daily_profit += settlement.profit
+        title, message = _format_result(record, settlement, daily_profit)
+        notifier.publish(title, message, 4 if settlement.hit else 3)
+        settled_keys.add(key)
 
 
 def run(now: datetime | None = None) -> int:
@@ -49,14 +96,17 @@ def run(now: datetime | None = None) -> int:
     except Exception as exc:
         print(f"開催データ取得失敗: {exc}")
         return 1
-    races = races_in_window(payload, now, config.minutes_before_min, config.minutes_before_max)
-    if not races:
-        return 0
     try:
-        used_keys, used_budget = notifier.used_keys_and_budget(now)
+        history = notifier.recent()
+        used_keys, used_budget = notifier.used_keys_and_budget(now, history)
+        _notify_results(payload, now, notifier, history)
     except Exception as exc:
         print(f"通知履歴取得失敗（安全のため買い候補を停止）: {exc}")
         used_keys, used_budget = set(), config.max_per_day
+
+    races = races_in_window(payload, now, config.minutes_before_min, config.minutes_before_max)
+    if not races:
+        return 0
 
     for race in races:
         key = _race_key(now, race)
