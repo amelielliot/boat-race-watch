@@ -13,6 +13,7 @@ class Bet:
     odds: float
     expected_value: float
     stake: int
+    bet_type: str = "3連単"
 
 
 @dataclass(frozen=True)
@@ -84,7 +85,13 @@ def order_probabilities(race: dict) -> dict[str, float]:
     return result
 
 
-def decide(race: dict, odds: dict[str, float] | None, remaining_budget: int, config) -> Decision:
+def decide(
+    race: dict,
+    trifecta_odds: dict[str, float] | None,
+    remaining_budget: int,
+    config,
+    exacta_odds: dict[str, float] | None = None,
+) -> Decision:
     preview = race.get("preview") or {}
     if not preview:
         return Decision("SKIP", ["直前情報が未反映"], [], {})
@@ -100,7 +107,7 @@ def decide(race: dict, odds: dict[str, float] | None, remaining_budget: int, con
         return Decision("SKIP", [f"風速{wind:.0f}mで不確実性が高い"], [], {})
     if wave >= config.max_wave_height:
         return Decision("SKIP", [f"波高{wave:.0f}cmで不確実性が高い"], [], {})
-    if odds is None:
+    if trifecta_odds is None and exacta_odds is None:
         return Decision("SKIP", ["直前オッズを取得できない"], [], {})
 
     probabilities = order_probabilities(race)
@@ -112,14 +119,30 @@ def decide(race: dict, odds: dict[str, float] | None, remaining_budget: int, con
     if exhibition_rank > 3:
         return Decision("SKIP", [f"1号艇の展示タイムが{exhibition_rank}位"], [], probabilities)
 
-    candidates = []
+    candidates: list[tuple[float, float, str, float, str]] = []
     for combination, probability in probabilities.items():
-        current_odds = odds.get(combination)
+        current_odds = (trifecta_odds or {}).get(combination)
         if not current_odds:
             continue
         ev = probability * current_odds
         if combination.startswith("1-") and ev >= config.min_expected_value and current_odds <= 80:
-            candidates.append((ev, probability, combination, current_odds))
+            candidates.append((ev, probability, combination, current_odds, "3連単"))
+
+    exacta_probabilities: dict[str, float] = {}
+    for combination, probability in probabilities.items():
+        pair = "-".join(combination.split("-")[:2])
+        exacta_probabilities[pair] = exacta_probabilities.get(pair, 0.0) + probability
+    for combination, probability in exacta_probabilities.items():
+        current_odds = (exacta_odds or {}).get(combination)
+        if not current_odds:
+            continue
+        ev = probability * current_odds
+        if combination.startswith("1-") and ev >= config.min_expected_value and current_odds <= 80:
+            candidates.append((ev, probability, combination, current_odds, "2連単"))
+
+    if candidates:
+        selected_type = max(candidates, key=lambda item: item[0])[4]
+        candidates = [candidate for candidate in candidates if candidate[4] == selected_type]
     candidates.sort(reverse=True)
     candidates = candidates[:3]
     budget = min(config.max_per_race, remaining_budget)
@@ -140,13 +163,14 @@ def decide(race: dict, odds: dict[str, float] | None, remaining_budget: int, con
         units[index] += 1
 
     bets = [
-        Bet(combo, probability, current_odds, ev, units[i] * 100)
-        for i, (ev, probability, combo, current_odds) in enumerate(candidates)
+        Bet(combo, probability, current_odds, ev, units[i] * 100, bet_type)
+        for i, (ev, probability, combo, current_odds, bet_type) in enumerate(candidates)
         if units[i] > 0
     ]
     reasons = [
         f"1号艇推定1着率{p1_win:.0%}",
         f"1号艇展示{exhibition_rank}位",
+        f"選択券種{candidates[0][4]}",
         f"期待値基準{config.min_expected_value:.2f}以上",
     ]
     return Decision("BUY", reasons, bets, probabilities)

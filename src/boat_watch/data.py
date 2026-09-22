@@ -10,7 +10,8 @@ from bs4 import BeautifulSoup
 
 JST = ZoneInfo("Asia/Tokyo")
 PROGRAM_URL = "https://boatraceopenapi.github.io/api/v1/{year}/{yyyymmdd}.json"
-ODDS_URL = "https://www.boatrace.jp/owpc/pc/race/odds3t"
+TRIFECTA_ODDS_URL = "https://www.boatrace.jp/owpc/pc/race/odds3t"
+EXACTA_ODDS_URL = "https://www.boatrace.jp/owpc/pc/race/odds2tf"
 USER_AGENT = "boat-race-watch/0.1 (+personal advisory; low-frequency candidate requests)"
 
 
@@ -120,13 +121,60 @@ def parse_trifecta_odds(html: str) -> dict[str, float]:
     return best
 
 
+def parse_exacta_odds(html: str) -> dict[str, float]:
+    """Parse the official six-block exacta table and validate all 30 combinations."""
+    soup = BeautifulSoup(html, "html.parser")
+    possible = {f"{first}-{second}" for first in range(1, 7) for second in range(1, 7) if first != second}
+    best: dict[str, float] = {}
+
+    for table in soup.find_all("table"):
+        parsed: dict[str, float] = {}
+        body = table.find("tbody")
+        if body is None:
+            continue
+        for row in body.find_all("tr", recursive=False):
+            cells = row.find_all("td", recursive=False)
+            if len(cells) < 12:
+                continue
+            # Official layout: six horizontal blocks. The block position is first
+            # place; each pair of cells contains second place and its odds.
+            for first in range(1, 7):
+                offset = (first - 1) * 2
+                second = cells[offset].get_text(" ", strip=True)
+                raw_odds = cells[offset + 1].get_text(" ", strip=True)
+                combination = f"{first}-{second}"
+                if combination not in possible:
+                    continue
+                match = re.search(r"\d+(?:\.\d+)?", raw_odds.replace(",", ""))
+                if match and float(match.group()) > 0:
+                    parsed[combination] = float(match.group())
+        if len(parsed) > len(best):
+            best = parsed
+
+    if len(best) != 30:
+        raise DataError(f"2連単オッズを30通り取得できませんでした（{len(best)}通り）")
+    return best
+
+
 def fetch_trifecta_odds(day: date, stadium: int, race_number: int, session=None) -> dict[str, float]:
     client = session or requests.Session()
     response = client.get(
-        ODDS_URL,
+        TRIFECTA_ODDS_URL,
         params={"hd": day.strftime("%Y%m%d"), "jcd": f"{stadium:02d}", "rno": race_number},
         timeout=20,
         headers={"User-Agent": USER_AGENT},
     )
     response.raise_for_status()
     return parse_trifecta_odds(response.text)
+
+
+def fetch_exacta_odds(day: date, stadium: int, race_number: int, session=None) -> dict[str, float]:
+    client = session or requests.Session()
+    response = client.get(
+        EXACTA_ODDS_URL,
+        params={"hd": day.strftime("%Y%m%d"), "jcd": f"{stadium:02d}", "rno": race_number},
+        timeout=20,
+        headers={"User-Agent": USER_AGENT},
+    )
+    response.raise_for_status()
+    return parse_exacta_odds(response.text)

@@ -6,10 +6,17 @@ from zoneinfo import ZoneInfo
 import requests
 
 from .config import Config
-from .data import DataError, fetch_programs, fetch_trifecta_odds, iter_races, races_in_window
+from .data import (
+    DataError,
+    fetch_exacta_odds,
+    fetch_programs,
+    fetch_trifecta_odds,
+    iter_races,
+    races_in_window,
+)
 from .model import decide
 from .notify import Ntfy
-from .results import RecordedBet, Settlement, settle_bet
+from .results import RecordedBet, Settlement, selection_label, settle_bet
 
 JST = ZoneInfo("Asia/Tokyo")
 STADIUMS = {
@@ -35,8 +42,11 @@ def _format(race: dict, decision, key: str, shadow: bool) -> tuple[str, str, int
             2,
         )
     total = sum(bet.stake for bet in decision.bets)
-    lines = [f"{bet.combination}　{bet.stake:,}円（オッズ{bet.odds:.1f}／期待値{bet.expected_value:.2f}）" for bet in decision.bets]
-    encoded_bets = ",".join(f"{bet.combination}@{bet.stake}" for bet in decision.bets)
+    lines = [f"{bet.bet_type} {bet.combination}　{bet.stake:,}円（オッズ{bet.odds:.1f}／期待値{bet.expected_value:.2f}）" for bet in decision.bets]
+    type_codes = {"2連単": "2T", "3連単": "3T"}
+    encoded_bets = ",".join(
+        f"{type_codes[bet.bet_type]}:{bet.combination}@{bet.stake}" for bet in decision.bets
+    )
     lines += [
         f"理由：{'／'.join(decision.reasons)}",
         "投票前に公式サイトで欠場・進入・最新オッズを再確認",
@@ -49,11 +59,14 @@ def _format_result(record: RecordedBet, settlement: Settlement, daily_profit: in
     stadium = STADIUMS.get(record.stadium_number, str(record.stadium_number))
     label = "的中" if settlement.hit else "ハズレ"
     payout_text = "／".join(
-        f"{combination} {amount:,}円" for combination, amount in settlement.winning_payouts.items()
+        f"{selection_label(selection)} {amount:,}円"
+        for selection, amount in settlement.winning_payouts.items()
     )
-    bet_text = "／".join(f"{combination} {stake:,}円" for combination, stake in record.bets.items())
+    bet_text = "／".join(
+        f"{selection_label(selection)} {stake:,}円" for selection, stake in record.bets.items()
+    )
     lines = [
-        f"結果：{payout_text}（3連単・100円あたり）",
+        f"結果：{payout_text}（100円あたり）",
         f"通知買い目：{bet_text}",
         f"仮想払戻：{settlement.return_amount:,}円",
         f"レース収支：{settlement.profit:+,}円",
@@ -112,17 +125,22 @@ def run(now: datetime | None = None) -> int:
         key = _race_key(now, race)
         if key in used_keys:
             continue
-        odds = None
+        trifecta_odds = None
+        exacta_odds = None
         preview = race.get("preview") or {}
         # Only request the official odds page when the preview exists and severe-weather
         # safety gates are not already known to fail.
         if preview and float(preview.get("wind_speed") or 0) < config.max_wind_speed and float(preview.get("wave_height") or 0) < config.max_wave_height:
             try:
-                odds = fetch_trifecta_odds(now.date(), int(race["stadium_number"]), int(race["race_number"]), session)
+                trifecta_odds = fetch_trifecta_odds(now.date(), int(race["stadium_number"]), int(race["race_number"]), session)
             except (requests.RequestException, DataError, ValueError) as exc:
-                print(f"{key} オッズ取得失敗: {exc}")
+                print(f"{key} 3連単オッズ取得失敗: {exc}")
+            try:
+                exacta_odds = fetch_exacta_odds(now.date(), int(race["stadium_number"]), int(race["race_number"]), session)
+            except (requests.RequestException, DataError, ValueError) as exc:
+                print(f"{key} 2連単オッズ取得失敗: {exc}")
         remaining = max(0, config.max_per_day - used_budget)
-        decision = decide(race, odds, remaining, config)
+        decision = decide(race, trifecta_odds, remaining, config, exacta_odds=exacta_odds)
         if decision.action == "SKIP" and not config.notify_skips:
             continue
         title, message, priority = _format(race, decision, key, config.shadow_mode)

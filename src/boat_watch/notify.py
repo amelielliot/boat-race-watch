@@ -9,7 +9,7 @@ import requests
 from .results import RecordedBet
 
 
-BUY_RE = re.compile(r"管理ID:([0-9-]+);予定額:(\d+)(?:;買い目:([0-9@,\-]+))?")
+BUY_RE = re.compile(r"管理ID:([0-9-]+);予定額:(\d+)(?:;買い目:([0-9A-Z:@,\-]+))?")
 SKIP_RE = re.compile(r"管理ID:([0-9-]+);見送り")
 RESULT_RE = re.compile(r"結果ID:([0-9-]+);収支:([+-]?\d+)")
 
