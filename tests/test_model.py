@@ -44,6 +44,24 @@ def test_buy_is_capped():
     assert len(decision.bets) <= 3
 
 
+def test_selects_exacta_when_its_best_expected_value_is_higher():
+    race = sample_race()
+    probabilities = order_probabilities(race)
+    trifecta_odds = {combo: 1.2 / probability for combo, probability in probabilities.items()}
+    exacta_probabilities = {}
+    for combo, probability in probabilities.items():
+        pair = "-".join(combo.split("-")[:2])
+        exacta_probabilities[pair] = exacta_probabilities.get(pair, 0) + probability
+    exacta_odds = {combo: 1.8 / probability for combo, probability in exacta_probabilities.items()}
+
+    decision = decide(race, trifecta_odds, 2000, config(), exacta_odds=exacta_odds)
+
+    assert decision.action == "BUY"
+    assert decision.bets
+    assert all(bet.bet_type == "2連単" for bet in decision.bets)
+    assert "選択券種2連単" in decision.reasons
+
+
 def test_high_wind_skips():
     race = sample_race()
     race["preview"]["wind_speed"] = 7

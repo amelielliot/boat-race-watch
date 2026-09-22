@@ -59,3 +59,14 @@ def test_history_parses_bets_and_settled_profit():
     assert records["20260921-01-01"].bets == {"1-2-3": 500, "1-3-2": 700}
     assert settled == {"20260921-01-01", "20260921-02-02"}
     assert profit == 3800
+
+
+def test_history_parses_ticket_type_metadata():
+    items = [
+        {"message": "管理ID:20260922-01-12;予定額:2000;買い目:2T:1-2@1200,2T:1-3@800"},
+    ]
+    notifier = Ntfy("topic")
+
+    records = notifier.recorded_bets(datetime(2026, 9, 22, 12, 0), items)
+
+    assert records["20260922-01-12"].bets == {"2T:1-2": 1200, "2T:1-3": 800}

@@ -1,4 +1,4 @@
-from boat_watch.data import parse_trifecta_odds
+from boat_watch.data import parse_exacta_odds, parse_trifecta_odds
 
 
 def test_parse_six_block_table():
@@ -19,3 +19,21 @@ def test_parse_six_block_table():
     odds = parse_trifecta_odds(html)
     assert len(odds) == 120
     assert odds["1-2-3"] == 6.1
+
+
+def test_parse_exacta_six_block_table():
+    rows = []
+    for second_index in range(5):
+        cells = []
+        for first in range(1, 7):
+            seconds = [n for n in range(1, 7) if n != first]
+            second = seconds[second_index]
+            cells.extend([str(second), f"{first + second}.1"])
+        rows.append("<tr>" + "".join(f"<td>{value}</td>" for value in cells) + "</tr>")
+    html = "<table><tbody>" + "".join(rows) + "</tbody></table>"
+
+    odds = parse_exacta_odds(html)
+
+    assert len(odds) == 30
+    assert odds["1-2"] == 3.1
+    assert odds["6-5"] == 11.1

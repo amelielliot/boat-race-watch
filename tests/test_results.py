@@ -6,6 +6,7 @@ def race_with_result(combination="1-2-3", amount=1240):
         "result": {
             "payouts": {
                 "trifecta": [{"combination": combination, "amount": amount}],
+                "exacta": [{"combination": "1-2", "amount": 660}],
             }
         }
     }
@@ -35,3 +36,15 @@ def test_settle_miss_loses_recorded_stake():
 def test_unsettled_race_returns_none():
     record = RecordedBet("20260921-01-01", 1, 1, {"1-2-3": 1200})
     assert settle_bet(record, {"result": None}) is None
+
+
+def test_settle_exacta_uses_exacta_payout():
+    record = RecordedBet("20260922-01-12", 1, 12, {"2T:1-2": 500, "2T:1-3": 1500})
+
+    settlement = settle_bet(record, race_with_result())
+
+    assert settlement is not None
+    assert settlement.hit
+    assert settlement.winning_payouts == {"2T:1-2": 660}
+    assert settlement.return_amount == 3300
+    assert settlement.profit == 1300
