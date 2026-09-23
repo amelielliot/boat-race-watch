@@ -9,7 +9,9 @@ import requests
 from .results import RecordedBet
 
 
-BUY_RE = re.compile(r"管理ID:([0-9-]+);予定額:(\d+)(?:;買い目:([0-9A-Z:@,\-]+))?")
+BUY_RE = re.compile(
+    r"管理ID:([0-9-]+);予定額:(\d+)(?:;買い目:([0-9A-Z:@,\-]+))?(;検証)?"
+)
 SKIP_RE = re.compile(r"管理ID:([0-9-]+);見送り")
 RESULT_RE = re.compile(r"結果ID:([0-9-]+);収支:([+-]?\d+)")
 
@@ -36,10 +38,11 @@ class Ntfy:
         day = now.strftime("%Y%m%d")
         for item in self.recent() if items is None else items:
             message = item.get("message", "")
-            for key, amount, _ in BUY_RE.findall(message):
+            for key, amount, _, validation_marker in BUY_RE.findall(message):
                 if key.startswith(day):
                     keys.add(key)
-                    amounts[key] = int(amount)
+                    if not validation_marker:
+                        amounts[key] = int(amount)
             for key in SKIP_RE.findall(message):
                 if key.startswith(day):
                     keys.add(key)
@@ -49,7 +52,7 @@ class Ntfy:
         day = now.strftime("%Y%m%d")
         records: dict[str, RecordedBet] = {}
         for item in self.recent() if items is None else items:
-            for key, _, raw_bets in BUY_RE.findall(item.get("message", "")):
+            for key, _, raw_bets, _ in BUY_RE.findall(item.get("message", "")):
                 if not key.startswith(day) or not raw_bets:
                     continue
                 parts = key.split("-")
