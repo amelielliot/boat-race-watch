@@ -31,6 +31,15 @@ def _race_key(now: datetime, race: dict) -> str:
     return f"{now:%Y%m%d}-{int(race['stadium_number']):02d}-{int(race['race_number']):02d}"
 
 
+def _budget_for_decision(config: Config, used_budget: int) -> tuple[int, bool]:
+    if config.shadow_mode:
+        return config.max_per_race, True
+    remaining = max(0, config.max_per_day - used_budget)
+    if remaining < 100:
+        return config.max_per_race, True
+    return remaining, False
+
+
 def _format(race: dict, decision, key: str, shadow: bool) -> tuple[str, str, int]:
     stadium = STADIUMS.get(int(race["stadium_number"]), str(race["stadium_number"]))
     race_no = int(race["race_number"])
@@ -47,10 +56,11 @@ def _format(race: dict, decision, key: str, shadow: bool) -> tuple[str, str, int
     encoded_bets = ",".join(
         f"{type_codes[bet.bet_type]}:{bet.combination}@{bet.stake}" for bet in decision.bets
     )
+    tracking_mode = ";検証" if shadow else ""
     lines += [
         f"理由：{'／'.join(decision.reasons)}",
         "投票前に公式サイトで欠場・進入・最新オッズを再確認",
-        f"管理ID:{key};予定額:{total};買い目:{encoded_bets}",
+        f"管理ID:{key};予定額:{total};買い目:{encoded_bets}{tracking_mode}",
     ]
     return f"{prefix}{stadium}{race_no}R", "\n".join(lines), 4
 
@@ -139,13 +149,13 @@ def run(now: datetime | None = None) -> int:
                 exacta_odds = fetch_exacta_odds(now.date(), int(race["stadium_number"]), int(race["race_number"]), session)
             except (requests.RequestException, DataError, ValueError) as exc:
                 print(f"{key} 2連単オッズ取得失敗: {exc}")
-        remaining = max(0, config.max_per_day - used_budget)
+        remaining, validation_only = _budget_for_decision(config, used_budget)
         decision = decide(race, trifecta_odds, remaining, config, exacta_odds=exacta_odds)
         if decision.action == "SKIP" and not config.notify_skips:
             continue
-        title, message, priority = _format(race, decision, key, config.shadow_mode)
+        title, message, priority = _format(race, decision, key, validation_only)
         notifier.publish(title, message, priority)
-        if decision.action == "BUY":
+        if decision.action == "BUY" and not validation_only:
             used_budget += sum(bet.stake for bet in decision.bets)
         used_keys.add(key)
     return 0
