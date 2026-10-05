@@ -116,6 +116,9 @@ def run(now: datetime | None = None) -> int:
     notifier = Ntfy(config.ntfy_topic, session)
     try:
         payload = fetch_programs(now.date(), session)
+    except requests.RequestException as exc:
+        print(f"開催データ取得を見送り（一時的な通信エラー）: {exc}")
+        return 0
     except Exception as exc:
         print(f"開催データ取得失敗: {exc}")
         return 1
