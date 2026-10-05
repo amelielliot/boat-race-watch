@@ -1,5 +1,9 @@
+from datetime import datetime
 from types import SimpleNamespace
 
+import requests
+
+from boat_watch import main
 from boat_watch.main import _budget_for_decision
 
 
@@ -14,3 +18,27 @@ def test_shadow_mode_always_keeps_full_validation_budget():
 def test_live_mode_keeps_daily_limit_then_switches_to_validation():
     assert _budget_for_decision(config(False), 3500) == (1500, False)
     assert _budget_for_decision(config(False), 5000) == (2000, True)
+
+
+def test_temporary_program_fetch_failure_is_a_successful_skip(monkeypatch, capsys):
+    def fail_fetch(*args, **kwargs):
+        raise requests.Timeout("timed out")
+
+    monkeypatch.setattr(main, "fetch_programs", fail_fetch)
+
+    result = main.run(datetime(2026, 10, 6, 8, 0, tzinfo=main.JST))
+
+    assert result == 0
+    assert "一時的な通信エラー" in capsys.readouterr().out
+
+
+def test_unexpected_program_fetch_failure_still_fails(monkeypatch, capsys):
+    def fail_fetch(*args, **kwargs):
+        raise RuntimeError("bug")
+
+    monkeypatch.setattr(main, "fetch_programs", fail_fetch)
+
+    result = main.run(datetime(2026, 10, 6, 8, 0, tzinfo=main.JST))
+
+    assert result == 1
+    assert "開催データ取得失敗" in capsys.readouterr().out
