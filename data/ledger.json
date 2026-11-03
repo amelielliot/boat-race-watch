@@ -1,0 +1,41 @@
+{
+  "complete_from": "2026-11-03",
+  "records": {
+    "20260921-06-12": {
+      "bets": {
+        "3T:1-2-3": {
+          "expected_value": 1.62,
+          "odds": 32.6,
+          "probability": null,
+          "stake": 600
+        },
+        "3T:1-4-2": {
+          "expected_value": 1.94,
+          "odds": 63.8,
+          "probability": null,
+          "stake": 1000
+        },
+        "3T:1-6-3": {
+          "expected_value": 1.41,
+          "odds": 41.8,
+          "probability": null,
+          "stake": 400
+        }
+      },
+      "date": "2026-09-21",
+      "hit": false,
+      "profit": -2000,
+      "race_number": 12,
+      "recorded_at": "2026-09-21",
+      "return_amount": 0,
+      "settled_at": "2026-09-21",
+      "source": "confirmed-history",
+      "stadium_number": 6,
+      "stake": 2000,
+      "status": "settled",
+      "validation": true
+    }
+  },
+  "updated_at": "2026-10-26T16:00:00+09:00",
+  "version": 1
+}

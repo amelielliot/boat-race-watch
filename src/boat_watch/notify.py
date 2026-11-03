@@ -33,20 +33,21 @@ class Ntfy:
         return [json.loads(line) for line in response.text.splitlines() if line.strip()]
 
     def used_keys_and_budget(self, now: datetime, items: list[dict] | None = None) -> tuple[set[str], int]:
-        keys: set[str] = set()
+        amounts = self.used_amounts(now, items)
+        return set(amounts), sum(amounts.values())
+
+    def used_amounts(self, now: datetime, items: list[dict] | None = None) -> dict[str, int]:
         amounts: dict[str, int] = {}
         day = now.strftime("%Y%m%d")
         for item in self.recent() if items is None else items:
             message = item.get("message", "")
             for key, amount, _, validation_marker in BUY_RE.findall(message):
                 if key.startswith(day):
-                    keys.add(key)
-                    if not validation_marker:
-                        amounts[key] = int(amount)
+                    amounts[key] = 0 if validation_marker else int(amount)
             for key in SKIP_RE.findall(message):
                 if key.startswith(day):
-                    keys.add(key)
-        return keys, sum(amounts.values())
+                    amounts.setdefault(key, 0)
+        return amounts
 
     def recorded_bets(self, now: datetime, items: list[dict] | None = None) -> dict[str, RecordedBet]:
         day = now.strftime("%Y%m%d")

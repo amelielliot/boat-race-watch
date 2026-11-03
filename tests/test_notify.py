@@ -85,3 +85,18 @@ def test_validation_predictions_do_not_use_daily_budget_but_are_tracked():
     assert keys == {"20260923-01-01", "20260923-02-02"}
     assert total == 1500
     assert records["20260923-01-01"].bets == {"2T:1-2": 2000}
+
+
+def test_used_amounts_can_merge_history_with_durable_ledger():
+    items = [
+        {"message": "管理ID:20260923-01-01;予定額:2000;買い目:2T:1-2@2000;検証"},
+        {"message": "管理ID:20260923-02-02;予定額:1500;買い目:3T:1-2-3@1500"},
+        {"message": "管理ID:20260923-03-03;見送り"},
+    ]
+    notifier = Ntfy("topic")
+
+    assert notifier.used_amounts(datetime(2026, 9, 23, 12, 0), items) == {
+        "20260923-01-01": 0,
+        "20260923-02-02": 1500,
+        "20260923-03-03": 0,
+    }

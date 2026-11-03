@@ -14,6 +14,7 @@ from .data import (
     iter_races,
     races_in_window,
 )
+from .ledger import Ledger
 from .model import decide
 from .notify import Ntfy
 from .results import RecordedBet, Settlement, selection_label, settle_bet
@@ -87,9 +88,18 @@ def _format_result(record: RecordedBet, settlement: Settlement, daily_profit: in
     return f"【{label}】{stadium}{record.race_number}R", "\n".join(lines)
 
 
-def _notify_results(payload: dict, now: datetime, notifier: Ntfy, history: list[dict]) -> None:
-    records = notifier.recorded_bets(now, history)
-    settled_keys, daily_profit = notifier.settled_results(now, history)
+def _notify_results(
+    payload: dict,
+    now: datetime,
+    notifier: Ntfy,
+    history: list[dict],
+    ledger: Ledger,
+) -> None:
+    records = ledger.pending_records(now)
+    records.update(notifier.recorded_bets(now, history))
+    history_settled, _ = notifier.settled_results(now, history)
+    settled_keys = ledger.settled_keys(now) | history_settled
+    daily_profit = ledger.daily_profit(now)
     races = {
         (int(race["stadium_number"]), int(race["race_number"])): race
         for race in iter_races(payload)
@@ -103,9 +113,11 @@ def _notify_results(payload: dict, now: datetime, notifier: Ntfy, history: list[
         settlement = settle_bet(record, race)
         if settlement is None:
             continue
-        daily_profit += settlement.profit
+        daily_profit = ledger.daily_profit(now) + settlement.profit
         title, message = _format_result(record, settlement, daily_profit)
         notifier.publish(title, message, 4 if settlement.hit else 3)
+        ledger.record_settlement(settlement, now)
+        ledger.save()
         settled_keys.add(key)
 
 
@@ -114,6 +126,7 @@ def run(now: datetime | None = None) -> int:
     now = (now or datetime.now(JST)).astimezone(JST)
     session = requests.Session()
     notifier = Ntfy(config.ntfy_topic, session)
+    ledger = Ledger()
     try:
         payload = fetch_programs(now.date(), session)
     except requests.RequestException as exc:
@@ -124,13 +137,25 @@ def run(now: datetime | None = None) -> int:
         return 1
     try:
         history = notifier.recent()
-        used_keys, used_budget = notifier.used_keys_and_budget(now, history)
-        _notify_results(payload, now, notifier, history)
+        ledger.reconcile_history(history, now)
+        ledger.save()
+        used_amounts = ledger.used_amounts(now)
+        for key, amount in notifier.used_amounts(now, history).items():
+            used_amounts[key] = max(used_amounts.get(key, 0), amount)
+        used_keys, used_budget = set(used_amounts), sum(used_amounts.values())
     except Exception as exc:
         print(f"通知履歴取得失敗（安全のため買い候補を停止）: {exc}")
-        used_keys, used_budget = set(), config.max_per_day
+        history = []
+        used_keys = set(ledger.used_amounts(now))
+        used_budget = config.max_per_day
+
+    try:
+        _notify_results(payload, now, notifier, history, ledger)
+    except Exception as exc:
+        print(f"結果通知失敗: {exc}")
 
     races = races_in_window(payload, now, config.minutes_before_min, config.minutes_before_max)
+    print(f"監視時刻: {now.isoformat()} / 開催レース: {sum(1 for _ in iter_races(payload))} / 締切前対象: {len(races)}")
     if not races:
         return 0
 
@@ -158,6 +183,9 @@ def run(now: datetime | None = None) -> int:
             continue
         title, message, priority = _format(race, decision, key, validation_only)
         notifier.publish(title, message, priority)
+        print(f"通知送信: {key} {decision.action}")
+        ledger.record_prediction(key, decision, validation_only, now)
+        ledger.save()
         if decision.action == "BUY" and not validation_only:
             used_budget += sum(bet.stake for bet in decision.bets)
         used_keys.add(key)

@@ -2,15 +2,22 @@ name: Boat Race Watch
 
 on:
   schedule:
-    - cron: "0/5 * * * *"
+    # Avoid minute 0 (GitHub's busiest time) and run every five minutes.
+    - cron: "2-57/5 * * * *"
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/watch.yml'
+      - 'src/**'
+      - 'tests/**'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: boat-race-watch
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   watch:
@@ -22,7 +29,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install .
+      - run: pip install '.[test]'
+      - name: Run tests
+        run: python -m pytest -q
       - name: Check upcoming races
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
@@ -32,3 +41,14 @@ jobs:
           MAX_PER_DAY: "5000"
           MIN_EXPECTED_VALUE: "1.15"
         run: python -m boat_watch.main
+      - name: Save paper-trading performance
+        if: always()
+        run: |
+          if git diff --quiet -- data/ledger.json PERFORMANCE.md; then
+            exit 0
+          fi
+          git config user.name "boat-race-watch[bot]"
+          git config user.email "boat-race-watch[bot]@users.noreply.github.com"
+          git add data/ledger.json PERFORMANCE.md
+          git commit -m "Update paper-trading performance"
+          git push
