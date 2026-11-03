@@ -34,8 +34,42 @@
       "stake": 2000,
       "status": "settled",
       "validation": true
+    },
+    "20261103-18-05": {
+      "bets": {
+        "3T:1-2-4": {
+          "expected_value": null,
+          "odds": null,
+          "probability": null,
+          "stake": 500
+        },
+        "3T:1-2-5": {
+          "expected_value": null,
+          "odds": null,
+          "probability": null,
+          "stake": 600
+        },
+        "3T:1-4-2": {
+          "expected_value": null,
+          "odds": null,
+          "probability": null,
+          "stake": 900
+        }
+      },
+      "date": "2026-11-03",
+      "hit": false,
+      "profit": -2000,
+      "race_number": 5,
+      "recorded_at": "2026-11-03T10:12:09+09:00",
+      "return_amount": 0,
+      "settled_at": "2026-11-03T16:55:48+09:00",
+      "source": "ntfy-recovery",
+      "stadium_number": 18,
+      "stake": 2000,
+      "status": "settled",
+      "validation": true
     }
   },
-  "updated_at": "2026-10-26T16:00:00+09:00",
+  "updated_at": "2026-11-03T19:15:29+09:00",
   "version": 1
 }
