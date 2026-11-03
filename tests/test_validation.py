@@ -191,6 +191,21 @@ def test_refunds_are_excluded_for_every_strategy_and_partial_results_wait(tmp_pa
     assert next(iter(b.data["records"].values()))["status"] == "excluded"
 
 
+def test_empty_api_result_skeleton_is_not_a_known_outcome(tmp_path):
+    b = book(tmp_path)
+    item = race()
+    item["result"] = {"date": item["date"], "refunds": [], "payouts": {"exacta": []},
+        "racers": {str(i): {"place_number": None, "start_timing": None} for i in range(1, 7)}}
+    assert b.capture(item, dict.fromkeys(PAIRS,10.), datetime(2026,10,30,12,tzinfo=JST))
+
+
+def test_actual_start_data_alone_blocks_capture(tmp_path):
+    b = book(tmp_path)
+    item = race()
+    item["result"] = {"racers": {"1": {"place_number": None, "start_timing": .1}}}
+    assert not b.capture(item, dict.fromkeys(PAIRS,10.), datetime(2026,10,30,12,tzinfo=JST))
+
+
 def test_max_drawdown_and_losing_streak_follow_close_time(tmp_path):
     b = book(tmp_path)
     # Store in reverse insertion order to exercise chronological ordering.

@@ -29,7 +29,14 @@ class ComparisonBook:
         if observed.date().isoformat() <= self.model["calibration_end"]:
             return False
         remaining = (parse_closed_at(race["closed_at"]) - observed).total_seconds() / 60
-        if not 7 <= remaining <= 13 or race.get("result"):
+        result = race.get("result") or {}
+        # The API supplies a nonempty result skeleton before a race. Only real
+        # result values, not that skeleton, indicate that the outcome is known.
+        result_known = bool(result.get("refunds")) or any((result.get("payouts") or {}).values()) or any(
+            row.get("place_number") is not None or row.get("start_timing") is not None
+            for row in (result.get("racers") or {}).values()
+        )
+        if not 7 <= remaining <= 13 or result_known:
             return False
         if not odds or set(odds) != set(PAIRS):
             return False
