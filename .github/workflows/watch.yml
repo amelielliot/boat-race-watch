@@ -11,6 +11,7 @@ on:
       - '.github/workflows/watch.yml'
       - 'src/**'
       - 'tests/**'
+      - 'pyproject.toml'
 
 permissions:
   contents: write
@@ -44,11 +45,11 @@ jobs:
       - name: Save paper-trading performance
         if: always()
         run: |
-          if git diff --quiet -- data/ledger.json PERFORMANCE.md; then
+          git add data/ledger.json PERFORMANCE.md data/validation LIVE_COMPARISON.md
+          if git diff --cached --quiet; then
             exit 0
           fi
           git config user.name "boat-race-watch[bot]"
           git config user.email "boat-race-watch[bot]@users.noreply.github.com"
-          git add data/ledger.json PERFORMANCE.md
-          git commit -m "Update paper-trading performance"
+          git commit -m "Update paper-trading performance and comparisons"
           git push

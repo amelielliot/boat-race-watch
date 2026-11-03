@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 from .config import Config
+from .comparison import ComparisonBook
 from .data import (
     DataError,
     fetch_exacta_odds,
@@ -135,6 +136,23 @@ def run(now: datetime | None = None) -> int:
     except Exception as exc:
         print(f"開催データ取得失敗: {exc}")
         return 1
+    comparison = None
+    try:
+        comparison = ComparisonBook()
+        comparison.settle(payload, now)
+        # Recover ordinary results missed by the final run of the previous day.
+        earlier = sorted((d for d in comparison.pending_dates() if d < now.date().isoformat()), reverse=True)
+        for day in earlier[:2]:
+            previous = fetch_programs(datetime.fromisoformat(day).date(), session)
+            comparison.settle(previous, now)
+        comparison.save()
+    except Exception as exc:
+        print(f"比較検証の初期化・結果取得失敗（現行通知は継続）: {exc}")
+        if comparison is not None:
+            try:
+                comparison.save()
+            except Exception as save_exc:
+                print(f"比較結果の保存失敗: {save_exc}")
     try:
         history = notifier.recent()
         ledger.reconcile_history(history, now)
@@ -161,7 +179,9 @@ def run(now: datetime | None = None) -> int:
 
     for race in races:
         key = _race_key(now, race)
-        if key in used_keys:
+        notification_done = key in used_keys
+        comparison_done = comparison is None or key in comparison.data["records"]
+        if notification_done and comparison_done:
             continue
         trifecta_odds = None
         exacta_odds = None
@@ -177,6 +197,15 @@ def run(now: datetime | None = None) -> int:
                 exacta_odds = fetch_exacta_odds(now.date(), int(race["stadium_number"]), int(race["race_number"]), session)
             except (requests.RequestException, DataError, ValueError) as exc:
                 print(f"{key} 2連単オッズ取得失敗: {exc}")
+        if comparison is not None:
+            try:
+                if comparison.capture(race, exacta_odds, datetime.now(JST)):
+                    comparison.save()
+                    print(f"比較スナップショット保存: {key}")
+            except Exception as exc:
+                print(f"比較スナップショット保存失敗: {key} {exc}")
+        if notification_done:
+            continue
         remaining, validation_only = _budget_for_decision(config, used_budget)
         decision = decide(race, trifecta_odds, remaining, config, exacta_odds=exacta_odds)
         if decision.action == "SKIP" and not config.notify_skips:
