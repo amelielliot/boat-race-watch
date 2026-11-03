@@ -35,6 +35,28 @@
       "status": "settled",
       "validation": true
     },
+    "20261103-01-11": {
+      "bets": {
+        "2T:1-4": {
+          "expected_value": 2.3986,
+          "odds": 18.5,
+          "probability": 0.12965424,
+          "stake": 2000
+        }
+      },
+      "date": "2026-11-03",
+      "hit": null,
+      "profit": null,
+      "race_number": 11,
+      "recorded_at": "2026-11-03T19:51:09.722168+09:00",
+      "return_amount": null,
+      "settled_at": null,
+      "source": "automatic",
+      "stadium_number": 1,
+      "stake": 2000,
+      "status": "pending",
+      "validation": true
+    },
     "20261103-18-05": {
       "bets": {
         "3T:1-2-4": {
@@ -70,6 +92,6 @@
       "validation": true
     }
   },
-  "updated_at": "2026-11-03T19:15:29+09:00",
+  "updated_at": "2026-11-03T19:51:29+09:00",
   "version": 1
 }
