@@ -256,7 +256,7 @@ def test_comparison_storage_failure_does_not_stop_existing_notifications(tmp_pat
     monkeypatch.setattr(main, "Ntfy", FakeNotifier)
     monkeypatch.setattr(main, "Ledger", lambda:Ledger(tmp_path/"ledger.json",tmp_path/"PERFORMANCE.md"))
     monkeypatch.setattr(main, "fetch_programs", lambda *args:payload(item))
-    monkeypatch.setattr(main, "fetch_trifecta_odds", lambda *args:{})
     monkeypatch.setattr(main, "fetch_exacta_odds", lambda *args:{})
+    monkeypatch.setattr(main, "fetch_trifecta_odds", lambda *args:{})
     assert main.run(now) == 0
     assert len(published) == 1

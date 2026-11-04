@@ -16,7 +16,7 @@ from .data import (
     races_in_window,
 )
 from .ledger import Ledger
-from .model import decide
+from .learned_decision import decide_learned, load_model
 from .notify import Ntfy
 from .results import RecordedBet, Settlement, selection_label, settle_bet
 
@@ -49,7 +49,7 @@ def _format(race: dict, decision, key: str, shadow: bool) -> tuple[str, str, int
     if decision.action == "SKIP":
         return (
             f"【見送り】{stadium}{race_no}R",
-            "\n".join([f"理由：{'／'.join(decision.reasons)}", f"管理ID:{key};見送り"]),
+            "\n".join([f"モデル：{decision.model_version}", f"理由：{'／'.join(decision.reasons)}", f"管理ID:{key};見送り"]),
             2,
         )
     total = sum(bet.stake for bet in decision.bets)
@@ -60,6 +60,7 @@ def _format(race: dict, decision, key: str, shadow: bool) -> tuple[str, str, int
     )
     tracking_mode = ";検証" if shadow else ""
     lines += [
+        f"モデル：{decision.model_version}",
         f"理由：{'／'.join(decision.reasons)}",
         "投票前に公式サイトで欠場・進入・最新オッズを再確認",
         f"管理ID:{key};予定額:{total};買い目:{encoded_bets}{tracking_mode}",
@@ -67,7 +68,8 @@ def _format(race: dict, decision, key: str, shadow: bool) -> tuple[str, str, int
     return f"{prefix}{stadium}{race_no}R", "\n".join(lines), 4
 
 
-def _format_result(record: RecordedBet, settlement: Settlement, daily_profit: int) -> tuple[str, str]:
+def _format_result(record: RecordedBet, settlement: Settlement, daily_profit: int,
+                   model_version: str = "未記録") -> tuple[str, str]:
     stadium = STADIUMS.get(record.stadium_number, str(record.stadium_number))
     label = "的中" if settlement.hit else "ハズレ"
     payout_text = "／".join(
@@ -78,6 +80,7 @@ def _format_result(record: RecordedBet, settlement: Settlement, daily_profit: in
         f"{selection_label(selection)} {stake:,}円" for selection, stake in record.bets.items()
     )
     lines = [
+        f"モデル：{model_version}",
         f"結果：{payout_text}（100円あたり）",
         f"通知買い目：{bet_text}",
         f"仮想払戻：{settlement.return_amount:,}円",
@@ -115,7 +118,8 @@ def _notify_results(
         if settlement is None:
             continue
         daily_profit = ledger.daily_profit(now) + settlement.profit
-        title, message = _format_result(record, settlement, daily_profit)
+        version = ledger.records.get(key,{}).get("model_version","未記録")
+        title, message = _format_result(record, settlement, daily_profit, version)
         notifier.publish(title, message, 4 if settlement.hit else 3)
         ledger.record_settlement(settlement, now)
         ledger.save()
@@ -136,14 +140,26 @@ def run(now: datetime | None = None) -> int:
     except Exception as exc:
         print(f"開催データ取得失敗: {exc}")
         return 1
+    notification_model = None
+    try:
+        notification_model = load_model()
+        print(f"通知モデル: {notification_model['notification_id']} / 検証モード: {config.shadow_mode}")
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        print(f"通知モデル読込失敗（買い候補停止・旧方式へ戻さない）: {exc}")
+    program_cache = {now.date().isoformat():payload}
+    def previous_program(day):
+        if day not in program_cache:
+            program_cache[day] = fetch_programs(datetime.fromisoformat(day).date(),session)
+        return program_cache[day]
     comparison = None
+    trifecta_comparison = None
     try:
         comparison = ComparisonBook()
         comparison.settle(payload, now)
         # Recover ordinary results missed by the final run of the previous day.
         earlier = sorted((d for d in comparison.pending_dates() if d < now.date().isoformat()), reverse=True)
         for day in earlier[:2]:
-            previous = fetch_programs(datetime.fromisoformat(day).date(), session)
+            previous = previous_program(day)
             comparison.settle(previous, now)
         comparison.save()
     except Exception as exc:
@@ -153,6 +169,16 @@ def run(now: datetime | None = None) -> int:
                 comparison.save()
             except Exception as save_exc:
                 print(f"比較結果の保存失敗: {save_exc}")
+    try:
+        trifecta_comparison = ComparisonBook(ticket_code="3T")
+        trifecta_comparison.settle(payload, now)
+        earlier = sorted((d for d in trifecta_comparison.pending_dates() if d < now.date().isoformat()),reverse=True)
+        for day in earlier[:2]:
+            trifecta_comparison.settle(previous_program(day),now)
+        trifecta_comparison.save()
+    except Exception as exc:
+        print(f"3連単比較検証失敗（通知は継続）: {exc}")
+        trifecta_comparison = None
     try:
         history = notifier.recent()
         ledger.reconcile_history(history, now)
@@ -181,22 +207,23 @@ def run(now: datetime | None = None) -> int:
         key = _race_key(now, race)
         notification_done = key in used_keys
         comparison_done = comparison is None or key in comparison.data["records"]
-        if notification_done and comparison_done:
+        trifecta_done = trifecta_comparison is None or key in trifecta_comparison.data["records"]
+        if notification_done and comparison_done and trifecta_done:
             continue
-        trifecta_odds = None
         exacta_odds = None
+        trifecta_odds = None
         preview = race.get("preview") or {}
         # Only request the official odds page when the preview exists and severe-weather
         # safety gates are not already known to fail.
         if preview and float(preview.get("wind_speed") or 0) < config.max_wind_speed and float(preview.get("wave_height") or 0) < config.max_wave_height:
             try:
-                trifecta_odds = fetch_trifecta_odds(now.date(), int(race["stadium_number"]), int(race["race_number"]), session)
-            except (requests.RequestException, DataError, ValueError) as exc:
-                print(f"{key} 3連単オッズ取得失敗: {exc}")
-            try:
                 exacta_odds = fetch_exacta_odds(now.date(), int(race["stadium_number"]), int(race["race_number"]), session)
             except (requests.RequestException, DataError, ValueError) as exc:
                 print(f"{key} 2連単オッズ取得失敗: {exc}")
+            try:
+                trifecta_odds = fetch_trifecta_odds(now.date(),int(race["stadium_number"]),int(race["race_number"]),session)
+            except (requests.RequestException, DataError, ValueError) as exc:
+                print(f"{key} 3連単オッズ取得失敗: {exc}")
         if comparison is not None:
             try:
                 if comparison.capture(race, exacta_odds, datetime.now(JST)):
@@ -204,10 +231,18 @@ def run(now: datetime | None = None) -> int:
                     print(f"比較スナップショット保存: {key}")
             except Exception as exc:
                 print(f"比較スナップショット保存失敗: {key} {exc}")
+        if trifecta_comparison is not None:
+            try:
+                if trifecta_comparison.capture(race,trifecta_odds,datetime.now(JST)):
+                    trifecta_comparison.save()
+                    print(f"3連単比較スナップショット保存: {key}")
+            except Exception as exc:
+                print(f"3連単比較保存失敗: {key} {exc}")
         if notification_done:
             continue
         remaining, validation_only = _budget_for_decision(config, used_budget)
-        decision = decide(race, trifecta_odds, remaining, config, exacta_odds=exacta_odds)
+        decision = decide_learned(race, exacta_odds, remaining, config, notification_model, now,
+                                  trifecta_odds=trifecta_odds)
         if decision.action == "SKIP" and not config.notify_skips:
             continue
         title, message, priority = _format(race, decision, key, validation_only)

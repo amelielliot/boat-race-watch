@@ -22,6 +22,7 @@ class Decision:
     reasons: list[str]
     bets: list[Bet]
     probabilities: dict[str, float]
+    model_version: str = "heuristic-v1"
 
 
 def _number(value, default: float) -> float:

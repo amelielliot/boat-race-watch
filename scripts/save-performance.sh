@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-git add data/ledger.json PERFORMANCE.md data/validation LIVE_COMPARISON.md
+git add data/ledger.json PERFORMANCE.md data/validation LIVE_COMPARISON.md LIVE_TRIFECTA_COMPARISON.md
 if git diff --cached --quiet; then
   echo "Performance is unchanged; nothing to save."
   exit 0

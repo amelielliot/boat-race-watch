@@ -87,6 +87,7 @@ class Ledger:
             "recorded_at": now.isoformat(),
             "settled_at": None,
             "source": "automatic",
+            "model_version": decision.model_version,
         }
         self.dirty = True
 
@@ -125,6 +126,8 @@ class Ledger:
                     "recorded_at": recorded_at.isoformat(),
                     "settled_at": None,
                     "source": "ntfy-recovery",
+                    "model_version": (re.search(r"モデル：([^\s]+)", message).group(1)
+                                      if re.search(r"モデル：([^\s]+)", message) else "未記録"),
                 }
                 self.dirty = True
 
@@ -272,6 +275,22 @@ class Ledger:
                 f"| {day} | {daily['races']} | {daily['hits']} | {daily['stake']:,}円 | "
                 f"{daily['return']:,}円 | {profit:+,}円 | {rate:.1f}% |"
             )
+        lines += ["", "## モデル別成績", "",
+                  "| モデル | 確定 | 未確定 | 仮想投資（確定分） | 払戻 | 収支 |",
+                  "|---|---:|---:|---:|---:|---:|"]
+        grouped = {}
+        for record in self.records.values():
+            version = record.get("model_version","旧方式・モデル未記録")
+            group = grouped.setdefault(version,dict(settled=0,pending=0,stake=0,returned=0))
+            if record.get("status")=="settled":
+                group["settled"] += 1
+                group["stake"] += int(record["stake"])
+                group["returned"] += int(record["return_amount"])
+            elif record.get("status")=="pending":
+                group["pending"] += 1
+        for version,g in sorted(grouped.items()):
+            lines.append(f"| {version} | {g['settled']} | {g['pending']} | {g['stake']:,}円 | "
+                         f"{g['returned']:,}円 | {g['returned']-g['stake']:+,}円 |")
         lines += [
             "",
             "## データの範囲",

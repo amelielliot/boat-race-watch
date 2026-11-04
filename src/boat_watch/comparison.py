@@ -7,15 +7,21 @@ from datetime import datetime
 from pathlib import Path
 
 from .data import parse_closed_at, iter_races
-from .validation_model import PAIRS, features, outcome, strategies, top_pair
+from .validation_model import (PAIRS, TRIPLES, features, outcome, triple_outcome,
+    strategies, trifecta_strategies, top_pair)
 
 
 class ComparisonBook:
-    def __init__(self, root="data/validation", report="LIVE_COMPARISON.md"):
+    def __init__(self, root="data/validation", report=None, ticket_code="2T"):
+        if ticket_code not in {"2T","3T"}:
+            raise ValueError("unsupported ticket type")
+        self.ticket_code = ticket_code
+        self.label = "2連単" if ticket_code=="2T" else "3連単"
+        self.combinations = PAIRS if ticket_code=="2T" else TRIPLES
         self.root = Path(root)
-        self.path = self.root / "live.json"
-        self.report = Path(report)
-        self.model = json.loads((self.root / "model.json").read_text(encoding="utf-8"))
+        self.path = self.root / ("live.json" if ticket_code=="2T" else "live-3t.json")
+        self.report = Path(report or ("LIVE_COMPARISON.md" if ticket_code=="2T" else "LIVE_TRIFECTA_COMPARISON.md"))
+        self.model = json.loads((self.root / ("model.json" if ticket_code=="2T" else "notification-model.json")).read_text(encoding="utf-8"))
         self.model_hash = hashlib.sha256(json.dumps(self.model, sort_keys=True).encode()).hexdigest()[:16]
         self.data = json.loads(self.path.read_text(encoding="utf-8")) if self.path.exists() else {
             "version": 1, "stake_per_strategy": 100, "records": {},
@@ -38,7 +44,7 @@ class ComparisonBook:
         )
         if not 7 <= remaining <= 13 or result_known:
             return False
-        if not odds or set(odds) != set(PAIRS):
+        if not odds or set(odds) != set(self.combinations):
             return False
         if any(not isinstance(x, (int, float)) or not 1 <= x < float("inf") for x in odds.values()):
             return False
@@ -47,13 +53,13 @@ class ComparisonBook:
             preview = race["preview"]
             if float(preview["wind_speed"]) >= 6 or float(preview["wave_height"]) >= 10:
                 return False
-            forecasts = strategies(race, self.model)
+            forecasts = (strategies if self.ticket_code=="2T" else trifecta_strategies)(race,self.model)
         except (ValueError, TypeError, KeyError):
             return False
         key = f"{observed:%Y%m%d}-{int(race['stadium_number']):02d}-{int(race['race_number']):02d}"
         if key in self.data["records"]:
             return False
-        implied = {pair: 1 / odds[pair] for pair in PAIRS}
+        implied = {pair: 1 / odds[pair] for pair in self.combinations}
         total = sum(implied.values())
         forecasts["人気順"] = {pair:p / total for pair,p in implied.items()}
         entries = {}
@@ -67,6 +73,7 @@ class ComparisonBook:
             "date": observed.date().isoformat(), "closed_at": parse_closed_at(race["closed_at"]).isoformat(),
             "observed_at": observed.isoformat(), "status": "pending",
             "model_hash": self.model_hash, "model_version": self.model["version"],
+            "ticket_code": self.ticket_code,
             "odds": odds, "features": matrix.tolist(), "strategies": entries,
         }
         self.dirty = True
@@ -85,17 +92,18 @@ class ComparisonBook:
             result = race.get("result") or {}
             if not result:
                 continue
-            labels = outcome(race)
+            payout_key = "exacta" if self.ticket_code=="2T" else "trifecta"
+            labels = (outcome if self.ticket_code=="2T" else triple_outcome)(race)
             if labels is None:
                 # Do not turn partially published results into exclusions or losses.
                 rows = (result.get("racers") or {}).values()
                 all_finished = len(result.get("racers") or {}) == 6 and all(
                     str(r.get("place_number", "")) not in {"", "None"} for r in rows)
-                if result.get("refunds") or (all_finished and (result.get("payouts") or {}).get("exacta")):
+                if result.get("refunds") or (all_finished and (result.get("payouts") or {}).get(payout_key)):
                     record.update(status="excluded", reason="返還・同着・不成立等の非通常決着")
                     self.dirty = True
                 continue
-            payouts = result["payouts"]["exacta"]
+            payouts = result["payouts"][payout_key]
             amount = int(payouts[0].get("amount") or 0)
             if amount <= 0:
                 continue
@@ -131,8 +139,8 @@ class ComparisonBook:
         self.root.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self.data, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
         states = [r["status"] for r in self.data["records"].values()]
-        lines = ["# 締切前スナップショットによる将来比較", "",
-            "比較専用。実購入なし。全方式が同じレースで2連単1点・100円を仮想購入します。", "",
+        lines = [f"# 締切前スナップショットによる将来比較（{self.label}）", "",
+            f"比較専用。実購入なし。全方式が同じレースで{self.label}1点・100円を仮想購入します。", "",
             f"保存済み {len(states)}レース／確定 {states.count('settled')}／未確定 {states.count('pending')}／非通常決着で除外 {states.count('excluded')}", "",
             "| 方式 | 確定 | 的中率 | 仮想投資 | 仮想払戻 | 収支 | 回収率 | 最大下落 | 最大連敗 |",
             "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
@@ -143,10 +151,11 @@ class ComparisonBook:
         if not self.summary():
             lines += ["", "まだ比較結果はありません。成績を推測して埋めません。"]
         lines += ["", "## 条件・限界", "",
-            "- 共通対象：締切7〜13分前、6艇の展示・選手情報と2連単30通りのオッズが揃い、風速6m未満・波高10cm未満。1号艇1着には限定しません。",
-            "- 現行スコアもこの比較では確率最大の2連単1点を選びます。従来の期待値選別・最大3点の通知成績とは別物です。",
+            f"- 共通対象：締切7〜13分前、6艇の展示・選手情報と{self.label}{len(self.combinations)}通りのオッズが揃い、風速6m未満・波高10cm未満。1号艇1着には限定しません。",
+            f"- 現行スコアもこの比較では確率最大の{self.label}1点を選びます。期待値選別・最大3点の通知成績とは別物です。",
+            "- 券種ごとの比較対象は欠損により異なります。2連単と3連単の表の回収率を、そのまま券種間の優劣とみなさないでください。",
             "- 人気順は取得時オッズの最小の組合せ。逆オッズの正規化は市場比較用で、真の確率と保証するものではありません。",
-            "- 取得時刻・特徴量・30通りのオッズ・モデル識別子・全方式の予測を保存。最初の有効スナップショットを固定し、結果判明後に選び直しません。",
+            f"- 取得時刻・特徴量・{len(self.combinations)}通りのオッズ・モデル識別子・全方式の予測を保存。最初の有効スナップショットを固定し、結果判明後に選び直しません。",
             "- 保存時点で結果があるレースは不採用。オッズの元サイト更新時刻までは保証できません。",
             "- 払戻は確定払戻を使用。未確定は損益に含めず、返還・同着等は全方式で除外。取り逃したレースは後付けで予想しません。",
             "- 最大下落は締切時刻順の累計損益のピークからの下落額。別期間での再現性や将来利益は保証しません。",

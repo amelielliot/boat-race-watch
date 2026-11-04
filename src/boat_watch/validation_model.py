@@ -9,6 +9,7 @@ import numpy as np
 from .model import order_probabilities
 
 PAIRS = [f"{a}-{b}" for a, b in permutations(range(1, 7), 2)]
+TRIPLES = [f"{a}-{b}-{c}" for a, b, c in permutations(range(1, 7), 3)]
 FEATURES = (
     [f"course_{i}" for i in range(1, 7)]
     + [f"venue_{i}_inside" for i in range(1, 25)]
@@ -16,6 +17,7 @@ FEATURES = (
        "flying_count", "inside_wind", "inside_wave"]
 )
 MODEL_VERSION = "conditional-logit-v1"
+TRIFECTA_MODEL_VERSION = "conditional-logit-v2-3t"
 
 
 def finite(value) -> float:
@@ -91,13 +93,26 @@ def softmax(scores: np.ndarray) -> np.ndarray:
     return weights / weights.sum(axis=-1, keepdims=True)
 
 
+def triple_outcome(race: dict) -> tuple[int, int, int] | None:
+    pair = outcome(race)
+    if pair is None:
+        return None
+    rows = race["result"]["racers"]
+    third = next(int(k)-1 for k,v in rows.items() if int(v["place_number"]) == 3)
+    payouts = (race["result"].get("payouts") or {}).get("trifecta") or []
+    if len(payouts) != 1 or payouts[0].get("combination") != f"{pair[0]+1}-{pair[1]+1}-{third+1}":
+        return None
+    return *pair, third
+
+
 def fit_weights(x: np.ndarray, y: np.ndarray, excluded: np.ndarray | None = None) -> np.ndarray:
     weights = np.zeros(x.shape[-1])
     target = np.eye(6)[y]
     for _ in range(250):
         scores = x @ weights
         if excluded is not None:
-            scores[np.arange(len(y)), excluded] = -1e9
+            rows = np.arange(len(y))[:, None] if excluded.ndim == 2 else np.arange(len(y))
+            scores[rows, excluded] = -1e9
         probabilities = softmax(scores)
         gradient = np.einsum("ncf,nc->f", x, probabilities - target) / len(y)
         # Fixed hyperparameters, not selected using the final evaluation period.
@@ -147,7 +162,7 @@ def fit(train: list[dict], calibration: list[dict]) -> dict:
 
 
 def learned_probabilities(race: dict, model: dict) -> dict[str, float]:
-    if model["features"] != FEATURES or model["version"] != MODEL_VERSION:
+    if model["features"] != FEATURES or model["version"] not in {MODEL_VERSION, TRIFECTA_MODEL_VERSION}:
         raise ValueError("model feature/version mismatch")
     x = features(race)
     first = softmax(x @ np.asarray(model["first_weights"]) / model["first_temperature"])
@@ -161,6 +176,34 @@ def learned_probabilities(race: dict, model: dict) -> dict[str, float]:
             if a != b:
                 result[f"{a + 1}-{b + 1}"] = float(first[a] * second[b])
     return result
+
+
+def learned_trifecta_probabilities(race: dict, model: dict) -> dict[str, float]:
+    if model["version"] != TRIFECTA_MODEL_VERSION:
+        raise ValueError("third-place model required; no heuristic fallback")
+    pairs = learned_probabilities(race, model)
+    scores = features(race) @ np.asarray(model["third_weights"]) / model["third_temperature"]
+    result = {}
+    for pair,p in pairs.items():
+        a,b = (int(v)-1 for v in pair.split("-"))
+        conditional = scores.copy()
+        conditional[[a,b]] = -1e9
+        third = softmax(conditional)
+        for c in range(6):
+            if c not in {a,b}:
+                result[f"{a+1}-{b+1}-{c+1}"] = float(p*third[c])
+    return result
+
+
+def trifecta_strategies(race: dict, model: dict) -> dict[str, dict[str, float]]:
+    features(race)
+    courses = race["preview"]["racers"]
+    counts = np.asarray(model["course_triple_counts"])
+    total = float(counts.sum())
+    course = {triple: float(counts[tuple(int(courses[k]["course_number"])-1 for k in triple.split("-"))] / total)
+              for triple in TRIPLES}
+    return {"現行スコア": order_probabilities(race), "コース頻度": course,
+            "学習版3着対応": learned_trifecta_probabilities(race, model)}
 
 
 def course_probabilities(race: dict, model: dict) -> dict[str, float]:

@@ -56,6 +56,8 @@ jobs:
             data/ledger.json
             PERFORMANCE.md
             data/validation/live.json
+            data/validation/live-3t.json
             LIVE_COMPARISON.md
+            LIVE_TRIFECTA_COMPARISON.md
           retention-days: 30
           if-no-files-found: error
