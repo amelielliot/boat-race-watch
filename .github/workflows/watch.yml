@@ -12,6 +12,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'pyproject.toml'
+      - 'scripts/**'
 
 permissions:
   contents: write
@@ -43,13 +44,18 @@ jobs:
           MIN_EXPECTED_VALUE: "1.15"
         run: python -m boat_watch.main
       - name: Save paper-trading performance
+        id: persist
         if: always()
-        run: |
-          git add data/ledger.json PERFORMANCE.md data/validation LIVE_COMPARISON.md
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git config user.name "boat-race-watch[bot]"
-          git config user.email "boat-race-watch[bot]@users.noreply.github.com"
-          git commit -m "Update paper-trading performance and comparisons"
-          git push
+        run: bash scripts/save-performance.sh
+      - name: Back up records if GitHub save fails
+        if: ${{ always() && steps.persist.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-backup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            data/ledger.json
+            PERFORMANCE.md
+            data/validation/live.json
+            LIVE_COMPARISON.md
+          retention-days: 30
+          if-no-files-found: error
