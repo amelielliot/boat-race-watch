@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import requests
+
 from boat_watch.notify import Ntfy
 
 
@@ -19,6 +21,14 @@ class Session:
         return Response()
 
 
+class FlakySession(Session):
+    def post(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        if len(self.calls) == 1:
+            raise requests.ConnectionError("temporary outage")
+        return Response()
+
+
 def test_publish_uses_utf8_safe_json():
     session = Session()
     notifier = Ntfy("hard-to-guess-topic", session)
@@ -29,6 +39,15 @@ def test_publish_uses_utf8_safe_json():
     assert kwargs["json"]["title"] == "【見送り】桐生1R"
     assert kwargs["json"]["message"] == "理由：強風"
     assert kwargs["json"]["topic"] == "hard-to-guess-topic"
+
+
+def test_publish_retries_a_temporary_connection_failure():
+    session = FlakySession()
+    notifier = Ntfy("topic", session, retry_attempts=2, retry_delay=0)
+
+    notifier.publish("title", "message")
+
+    assert len(session.calls) == 2
 
 
 def test_history_deduplicates_and_totals_today():

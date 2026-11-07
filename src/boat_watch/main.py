@@ -246,7 +246,13 @@ def run(now: datetime | None = None) -> int:
         if decision.action == "SKIP" and not config.notify_skips:
             continue
         title, message, priority = _format(race, decision, key, validation_only)
-        notifier.publish(title, message, priority)
+        try:
+            notifier.publish(title, message, priority)
+        except requests.RequestException as exc:
+            # Do not mark the race as notified. A later scheduled run can retry it
+            # while the comparison snapshot and the rest of this run remain valid.
+            print(f"{key} 通知送信失敗（次回の監視で再試行）: {exc}")
+            continue
         print(f"通知送信: {key} {decision.action}")
         ledger.record_prediction(key, decision, validation_only, now)
         ledger.save()

@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import pytest
+import requests
 
 from test_validation import race, model
 from boat_watch.learned_decision import decide_learned, load_model
@@ -167,7 +168,8 @@ def test_notification_model_preserves_frozen_first_and_second_place_models():
         assert base[key]==active[key]
 
 
-def test_main_routes_notifications_to_learned_model(tmp_path,monkeypatch):
+@pytest.mark.parametrize("publish_fails", [False, True])
+def test_main_routes_notifications_to_learned_model(tmp_path,monkeypatch,publish_fails):
     from boat_watch import main
     now=datetime.now(JST)
     r=upcoming()
@@ -180,7 +182,10 @@ def test_main_routes_notifications_to_learned_model(tmp_path,monkeypatch):
         def used_amounts(self,*args):return {}
         def recorded_bets(self,*args):return {}
         def settled_results(self,*args):return set(),0
-        def publish(self,*args):sent.append(args)
+        def publish(self,*args):
+            if publish_fails:
+                raise requests.ConnectionError("ntfy unavailable")
+            sent.append(args)
     def disabled_book(*args,**kwargs):raise ValueError("isolated test")
     monkeypatch.setattr(main,"ComparisonBook",disabled_book)
     monkeypatch.setattr(main,"Ntfy",FakeNotifier)
@@ -190,4 +195,7 @@ def test_main_routes_notifications_to_learned_model(tmp_path,monkeypatch):
     monkeypatch.setattr(main,"fetch_exacta_odds",lambda *args:dict.fromkeys(PAIRS,1.))
     monkeypatch.setattr(main,"fetch_trifecta_odds",lambda *args:dict.fromkeys(TRIPLES,10.))
     assert main.run(now)==0
-    assert len(sent)==1 and "3連単" in sent[0][1] and "conditional-logit-v2-3t@test" in sent[0][1]
+    if publish_fails:
+        assert sent == []
+    else:
+        assert len(sent)==1 and "3連単" in sent[0][1] and "conditional-logit-v2-3t@test" in sent[0][1]

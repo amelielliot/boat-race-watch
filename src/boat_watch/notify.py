@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import datetime
 
 import requests
@@ -17,18 +18,44 @@ RESULT_RE = re.compile(r"結果ID:([0-9-]+);収支:([+-]?\d+)")
 
 
 class Ntfy:
-    def __init__(self, topic: str, session: requests.Session | None = None):
+    def __init__(
+        self,
+        topic: str,
+        session: requests.Session | None = None,
+        retry_attempts: int = 2,
+        retry_delay: float = 1.0,
+    ):
         self.topic = topic
         self.session = session or requests.Session()
+        self.retry_attempts = max(1, retry_attempts)
+        self.retry_delay = max(0.0, retry_delay)
 
     @property
     def url(self) -> str:
         return f"https://ntfy.sh/{self.topic}"
 
+    def _request(self, method: str, url: str, **kwargs) -> requests.Response:
+        """Retry short-lived ntfy connection failures without hiding a lasting outage."""
+        request = getattr(self.session, method)
+        for attempt in range(1, self.retry_attempts + 1):
+            try:
+                return request(url, **kwargs)
+            except (requests.ConnectionError, requests.Timeout):
+                if attempt == self.retry_attempts:
+                    raise
+                print(f"ntfy接続を再試行: {attempt + 1}/{self.retry_attempts}")
+                time.sleep(self.retry_delay)
+        raise RuntimeError("unreachable")
+
     def recent(self) -> list[dict]:
         if not self.topic:
             return []
-        response = self.session.get(f"{self.url}/json", params={"poll": "1", "since": "24h"}, timeout=20)
+        response = self._request(
+            "get",
+            f"{self.url}/json",
+            params={"poll": "1", "since": "24h"},
+            timeout=(5, 15),
+        )
         response.raise_for_status()
         return [json.loads(line) for line in response.text.splitlines() if line.strip()]
 
@@ -82,7 +109,8 @@ class Ntfy:
             print(title)
             print(message)
             return
-        response = self.session.post(
+        response = self._request(
+            "post",
             "https://ntfy.sh",
             json={
                 "topic": self.topic,
@@ -91,6 +119,6 @@ class Ntfy:
                 "priority": priority,
                 "tags": ["boat"],
             },
-            timeout=20,
+            timeout=(5, 15),
         )
         response.raise_for_status()
