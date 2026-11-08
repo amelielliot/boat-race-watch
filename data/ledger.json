@@ -217,17 +217,17 @@
         }
       },
       "date": "2026-11-08",
-      "hit": null,
+      "hit": true,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d",
-      "profit": null,
+      "profit": -1570,
       "race_number": 4,
       "recorded_at": "2026-11-08T11:33:36.156137+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 430,
+      "settled_at": "2026-11-08T18:26:02.950872+09:00",
       "source": "automatic",
       "stadium_number": 8,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     },
     "20261108-14-03": {
@@ -252,20 +252,20 @@
         }
       },
       "date": "2026-11-08",
-      "hit": null,
+      "hit": false,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d",
-      "profit": null,
+      "profit": -2000,
       "race_number": 3,
       "recorded_at": "2026-11-08T11:33:36.156137+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 0,
+      "settled_at": "2026-11-08T18:26:02.950872+09:00",
       "source": "automatic",
       "stadium_number": 14,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     }
   },
-  "updated_at": "2026-11-08T11:34:13+09:00",
+  "updated_at": "2026-11-08T18:26:03+09:00",
   "version": 1
 }
