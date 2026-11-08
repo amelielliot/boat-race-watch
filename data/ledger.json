@@ -194,8 +194,78 @@
       "stake": 2000,
       "status": "settled",
       "validation": true
+    },
+    "20261108-08-04": {
+      "bets": {
+        "2T:1-2": {
+          "expected_value": 1.2731,
+          "odds": 6.2,
+          "probability": 0.20533236,
+          "stake": 100
+        },
+        "2T:1-3": {
+          "expected_value": 4.4823,
+          "odds": 55.3,
+          "probability": 0.08105436,
+          "stake": 1700
+        },
+        "2T:2-3": {
+          "expected_value": 1.3155,
+          "odds": 72.0,
+          "probability": 0.0182712,
+          "stake": 200
+        }
+      },
+      "date": "2026-11-08",
+      "hit": null,
+      "model_version": "conditional-logit-v2-3t@426317dd8f732d1d",
+      "profit": null,
+      "race_number": 4,
+      "recorded_at": "2026-11-08T11:33:36.156137+09:00",
+      "return_amount": null,
+      "settled_at": null,
+      "source": "automatic",
+      "stadium_number": 8,
+      "stake": 2000,
+      "status": "pending",
+      "validation": true
+    },
+    "20261108-14-03": {
+      "bets": {
+        "3T:4-3-1": {
+          "expected_value": 1.524,
+          "odds": 43.4,
+          "probability": 0.03511466,
+          "stake": 700
+        },
+        "3T:4-3-2": {
+          "expected_value": 1.5362,
+          "odds": 44.1,
+          "probability": 0.03483436,
+          "stake": 700
+        },
+        "3T:4-3-6": {
+          "expected_value": 1.402,
+          "odds": 64.9,
+          "probability": 0.02160232,
+          "stake": 600
+        }
+      },
+      "date": "2026-11-08",
+      "hit": null,
+      "model_version": "conditional-logit-v2-3t@426317dd8f732d1d",
+      "profit": null,
+      "race_number": 3,
+      "recorded_at": "2026-11-08T11:33:36.156137+09:00",
+      "return_amount": null,
+      "settled_at": null,
+      "source": "automatic",
+      "stadium_number": 14,
+      "stake": 2000,
+      "status": "pending",
+      "validation": true
     }
   },
-  "updated_at": "2026-11-05T19:49:24+09:00",
+  "updated_at": "2026-11-08T11:34:13+09:00",
   "version": 1
 }
