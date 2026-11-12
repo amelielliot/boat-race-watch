@@ -12,6 +12,13 @@ from .validation_model import (TRIFECTA_MODEL_VERSION, PAIRS, TRIPLES,
     learned_probabilities, learned_trifecta_probabilities, win_probabilities)
 
 
+POLICY_VERSION = "trifecta-hit-v1"
+MODEL_WEIGHT = 0.80
+TRIFECTA_MAX_ODDS = 50.0
+TRIFECTA_MIN_PROBABILITY = 0.02
+TRIFECTA_MIN_COVERAGE = 0.10
+
+
 def load_model(path="data/validation/notification-model.json") -> dict:
     model = json.loads(Path(path).read_text(encoding="utf-8"))
     model["notification_id"] = model["version"] + "@" + hashlib.sha256(
@@ -23,7 +30,8 @@ def load_model(path="data/validation/notification-model.json") -> dict:
 def decide_learned(race: dict, odds: dict[str, float] | None, budget: int,
                    config, model: dict | None, now: datetime,
                    trifecta_odds: dict[str, float] | None = None) -> Decision:
-    version = model.get("notification_id", TRIFECTA_MODEL_VERSION) if model else "learned-model-unavailable"
+    base_version = model.get("notification_id", TRIFECTA_MODEL_VERSION) if model else "learned-model-unavailable"
+    version = f"{base_version}+{POLICY_VERSION}"
 
     def skip(reason, probabilities=None):
         return Decision("SKIP", [reason], [], probabilities or {}, version)
@@ -57,28 +65,53 @@ def decide_learned(race: dict, odds: dict[str, float] | None, budget: int,
     def valid(quotes, combinations):
         return bool(quotes) and set(quotes)==set(combinations) and all(
             isinstance(v,(int,float)) and math.isfinite(v) and v >= 1 for v in quotes.values())
-    candidates = []
     available = []
-    for quotes, ps, combinations, label in ((odds, probabilities, PAIRS, "2連単"),
-                                          (trifecta_odds, triples, TRIPLES, "3連単")):
-        if valid(quotes,combinations):
-            available.append(label)
-            candidates += [(p*quotes[combo],combo,p,quotes[combo],label) for combo,p in ps.items()
-                if p*quotes[combo] >= config.min_expected_value and quotes[combo] <= 80]
+    pair_probabilities = probabilities
+    if valid(odds, PAIRS):
+        available.append("2連単")
+        inverse_total = sum(1 / quote for quote in odds.values())
+        pair_probabilities = {
+            combo: MODEL_WEIGHT * probabilities[combo]
+            + (1 - MODEL_WEIGHT) * ((1 / odds[combo]) / inverse_total)
+            for combo in PAIRS
+        }
+    candidates = []
+    coverage = 0.0
+    if valid(trifecta_odds, TRIPLES):
+        available.append("3連単")
+        inverse_total = sum(1 / quote for quote in trifecta_odds.values())
+        market = {combo: (1 / trifecta_odds[combo]) / inverse_total for combo in TRIPLES}
+        blended = {
+            combo: MODEL_WEIGHT * triples[combo] + (1 - MODEL_WEIGHT) * market[combo]
+            for combo in TRIPLES
+        }
+        candidates = [
+            (p * trifecta_odds[combo], combo, p, trifecta_odds[combo], "3連単")
+            for combo, p in blended.items()
+            if p >= TRIFECTA_MIN_PROBABILITY
+            and p * trifecta_odds[combo] >= config.min_expected_value
+            and trifecta_odds[combo] <= TRIFECTA_MAX_ODDS
+        ]
+        # Within trifecta, cover the likeliest outcomes instead of chasing the
+        # largest individual payout.
+        candidates.sort(key=lambda item: (-item[2], -item[0], item[1]))
+        candidates = candidates[:3]
+        coverage = sum(item[2] for item in candidates)
     if not available:
         return skip("直前オッズを確認できない（2連単30通り・3連単120通り）",probabilities)
-    # Keep the existing policy: one ticket family per race, within one total budget.
-    candidates.sort(key=lambda item: (-item[0],item[1],item[4]))
-    if candidates:
-        selected_type = candidates[0][4]
-        candidates = [c for c in candidates if c[4]==selected_type][:3]
-    if not candidates:
-        return skip(f"学習版の推定期待値{config.min_expected_value:.2f}以上の買い目なし（確認券種：{'・'.join(available)}）", probabilities)
+    if "3連単" not in available:
+        return skip("3連単120通りの直前オッズを確認できないため見送り", pair_probabilities)
+    if not candidates or coverage < TRIFECTA_MIN_COVERAGE:
+        return skip(
+            "3連単で的中率重視の確率・50倍以下・期待値基準を満たす上位3点なし",
+            pair_probabilities,
+        )
+    selected_type = "3連単"
     units_available = min(config.max_per_race, budget) // 100
     if units_available < 1:
         return skip("仮想予算の残額が100円未満", probabilities)
     candidates = candidates[:units_available]
-    weights = [max(.01, ev-1) for ev, *_ in candidates]
+    weights = [p for _, _, p, _, _ in candidates]
     raw = [units_available*w/sum(weights) for w in weights]
     units = [max(1,int(x)) for x in raw]
     while sum(units) > units_available:
@@ -89,10 +122,11 @@ def decide_learned(race: dict, odds: dict[str, float] | None, budget: int,
         units[i] += 1
     bets = [Bet(pair, p, quote, ev, units[i]*100, label)
             for i,(ev,pair,p,quote,label) in enumerate(candidates) if units[i] > 0]
-    win = win_probabilities(probabilities)
+    win = win_probabilities(pair_probabilities)
     leader = max(range(6),key=lambda i:win[i])
-    reasons = [f"学習版・{leader+1}号艇推定1着率{win[leader]:.0%}",
-               "1着・条件付き2着・条件付き3着を別モデルで推定", f"選択券種{candidates[0][4]}",
+    reasons = [f"学習版＋直前人気・{leader+1}号艇推定1着率{win[leader]:.0%}",
+               "モデル80%・直前オッズ20%で確率を補正", f"選択券種{selected_type}／3点内の合計確率{coverage:.0%}",
+               "3連単限定・高配当順ではなく的中確率順・50倍まで",
                f"確認券種：{'・'.join(available)}／共通の仮想予算内",
                f"推定期待値基準{config.min_expected_value:.2f}以上（利益保証なし）"]
-    return Decision("BUY", reasons, bets, probabilities, version)
+    return Decision("BUY", reasons, bets, pair_probabilities, version)

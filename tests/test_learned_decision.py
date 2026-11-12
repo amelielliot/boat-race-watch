@@ -66,19 +66,42 @@ def test_selects_learned_trifecta_without_increasing_total_budget():
     assert all(b.bet_type=="3連単" for b in d.bets)
     assert sum(b.stake for b in d.bets)==2000
     assert len(d.bets)<=3
-    assert d.model_version.endswith("@test")
+    assert d.model_version.endswith("@test+trifecta-hit-v1")
 
 
-def test_selects_exacta_when_its_estimated_value_is_higher():
+def test_skips_instead_of_falling_back_to_exacta():
     d=decision(pair_quote=10.,triple_quote=1.)
+    assert d.action=="SKIP"
+    assert not d.bets
+
+
+def test_hit_first_policy_rejects_low_probability_longshots():
+    triple_odds = dict.fromkeys(TRIPLES, 1.)
+    triple_odds["6-5-4"] = 80.
+    d=decide_learned(upcoming(),None,2000,config(),trained(),
+                     datetime(2026,10,30,12,tzinfo=JST),trifecta_odds=triple_odds)
+    assert d.action=="SKIP"
+
+
+def test_hit_first_policy_orders_bets_by_probability_not_raw_ev():
+    m=trained()
+    m["third_weights"]=[0.]*len(m["third_weights"])
+    triple_odds = dict.fromkeys(TRIPLES, 1.)
+    triple_odds["1-2-3"] = 10.
+    triple_odds["1-2-4"] = 30.
+    triple_odds["1-2-5"] = 20.
+    d=decide_learned(upcoming(),None,2000,config(),m,
+                     datetime(2026,10,30,12,tzinfo=JST),trifecta_odds=triple_odds)
     assert d.action=="BUY"
-    assert all(b.bet_type=="2連単" for b in d.bets)
+    assert d.bets[0].combination=="1-2-3"
+    assert d.bets[0].probability > d.bets[-1].probability
+    assert d.bets[0].expected_value < d.bets[-1].expected_value
 
 
-def test_missing_trifecta_odds_still_allows_valid_exacta():
+def test_missing_trifecta_odds_does_not_fall_back_to_exacta():
     d=decide_learned(upcoming(),dict.fromkeys(PAIRS,10.),2000,config(),trained(),
                      datetime(2026,10,30,12,tzinfo=JST),trifecta_odds=None)
-    assert d.action=="BUY" and all(b.bet_type=="2連単" for b in d.bets)
+    assert d.action=="SKIP" and not d.bets
 
 
 def test_missing_pair_odds_still_allows_valid_trifecta():
@@ -198,4 +221,4 @@ def test_main_routes_notifications_to_learned_model(tmp_path,monkeypatch,publish
     if publish_fails:
         assert sent == []
     else:
-        assert len(sent)==1 and "3連単" in sent[0][1] and "conditional-logit-v2-3t@test" in sent[0][1]
+        assert len(sent)==1 and "3連単" in sent[0][1] and "conditional-logit-v2-3t@test+trifecta-hit-v1" in sent[0][1]

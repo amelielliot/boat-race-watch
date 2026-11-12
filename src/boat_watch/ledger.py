@@ -276,20 +276,22 @@ class Ledger:
                 f"{daily['return']:,}円 | {profit:+,}円 | {rate:.1f}% |"
             )
         lines += ["", "## モデル別成績", "",
-                  "| モデル | 確定 | 未確定 | 仮想投資（確定分） | 払戻 | 収支 |",
-                  "|---|---:|---:|---:|---:|---:|"]
+                  "| モデル・選定方針 | 確定 | 的中率 | 未確定 | 仮想投資（確定分） | 払戻 | 収支 |",
+                  "|---|---:|---:|---:|---:|---:|---:|"]
         grouped = {}
         for record in self.records.values():
             version = record.get("model_version","旧方式・モデル未記録")
-            group = grouped.setdefault(version,dict(settled=0,pending=0,stake=0,returned=0))
+            group = grouped.setdefault(version,dict(settled=0,hits=0,pending=0,stake=0,returned=0))
             if record.get("status")=="settled":
                 group["settled"] += 1
+                group["hits"] += int(bool(record.get("hit")))
                 group["stake"] += int(record["stake"])
                 group["returned"] += int(record["return_amount"])
             elif record.get("status")=="pending":
                 group["pending"] += 1
         for version,g in sorted(grouped.items()):
-            lines.append(f"| {version} | {g['settled']} | {g['pending']} | {g['stake']:,}円 | "
+            hit_rate = g["hits"] / g["settled"] * 100 if g["settled"] else 0
+            lines.append(f"| {version} | {g['settled']} | {hit_rate:.1f}% | {g['pending']} | {g['stake']:,}円 | "
                          f"{g['returned']:,}円 | {g['returned']-g['stake']:+,}円 |")
         lines += [
             "",
