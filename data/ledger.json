@@ -392,17 +392,17 @@
         }
       },
       "date": "2026-11-12",
-      "hit": null,
+      "hit": true,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d",
-      "profit": null,
+      "profit": 5290,
       "race_number": 4,
       "recorded_at": "2026-11-12T11:54:33.868301+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 7290,
+      "settled_at": "2026-11-12T19:34:51.681074+09:00",
       "source": "automatic",
       "stadium_number": 2,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     },
     "20261112-10-08": {
@@ -427,20 +427,43 @@
         }
       },
       "date": "2026-11-12",
+      "hit": false,
+      "model_version": "conditional-logit-v2-3t@426317dd8f732d1d",
+      "profit": -2000,
+      "race_number": 8,
+      "recorded_at": "2026-11-12T11:54:33.868301+09:00",
+      "return_amount": 0,
+      "settled_at": "2026-11-12T19:34:51.681074+09:00",
+      "source": "automatic",
+      "stadium_number": 10,
+      "stake": 2000,
+      "status": "settled",
+      "validation": true
+    },
+    "20261112-24-10": {
+      "bets": {
+        "2T:1-6": {
+          "expected_value": 2.455,
+          "odds": 56.1,
+          "probability": 0.04376139,
+          "stake": 2000
+        }
+      },
+      "date": "2026-11-12",
       "hit": null,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d",
       "profit": null,
-      "race_number": 8,
-      "recorded_at": "2026-11-12T11:54:33.868301+09:00",
+      "race_number": 10,
+      "recorded_at": "2026-11-12T19:34:51.681074+09:00",
       "return_amount": null,
       "settled_at": null,
       "source": "automatic",
-      "stadium_number": 10,
+      "stadium_number": 24,
       "stake": 2000,
       "status": "pending",
       "validation": true
     }
   },
-  "updated_at": "2026-11-12T11:55:12+09:00",
+  "updated_at": "2026-11-12T19:35:12+09:00",
   "version": 1
 }
