@@ -632,6 +632,41 @@
       "status": "settled",
       "validation": true
     },
+    "20261113-02-11": {
+      "bets": {
+        "3T:1-2-3": {
+          "expected_value": 1.1635,
+          "odds": 18.9,
+          "probability": 0.06155906,
+          "stake": 800
+        },
+        "3T:1-2-5": {
+          "expected_value": 1.5831,
+          "odds": 42.6,
+          "probability": 0.03716258,
+          "stake": 400
+        },
+        "3T:1-2-6": {
+          "expected_value": 1.4431,
+          "odds": 23.4,
+          "probability": 0.06167174,
+          "stake": 800
+        }
+      },
+      "date": "2026-11-13",
+      "hit": null,
+      "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
+      "profit": null,
+      "race_number": 11,
+      "recorded_at": "2026-11-13T15:15:02.171075+09:00",
+      "return_amount": null,
+      "settled_at": null,
+      "source": "automatic",
+      "stadium_number": 2,
+      "stake": 2000,
+      "status": "pending",
+      "validation": true
+    },
     "20261113-04-04": {
       "bets": {
         "3T:3-2-4": {
@@ -733,6 +768,41 @@
       "settled_at": null,
       "source": "automatic",
       "stadium_number": 4,
+      "stake": 2000,
+      "status": "pending",
+      "validation": true
+    },
+    "20261113-07-01": {
+      "bets": {
+        "3T:1-2-4": {
+          "expected_value": 1.1894,
+          "odds": 18.9,
+          "probability": 0.06293313,
+          "stake": 600
+        },
+        "3T:1-2-5": {
+          "expected_value": 2.5952,
+          "odds": 33.4,
+          "probability": 0.07769926,
+          "stake": 700
+        },
+        "3T:1-2-6": {
+          "expected_value": 1.3647,
+          "odds": 17.4,
+          "probability": 0.07843236,
+          "stake": 700
+        }
+      },
+      "date": "2026-11-13",
+      "hit": null,
+      "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
+      "profit": null,
+      "race_number": 1,
+      "recorded_at": "2026-11-13T15:15:02.171075+09:00",
+      "return_amount": null,
+      "settled_at": null,
+      "source": "automatic",
+      "stadium_number": 7,
       "stake": 2000,
       "status": "pending",
       "validation": true
@@ -1292,6 +1362,6 @@
       "validation": true
     }
   },
-  "updated_at": "2026-11-13T15:10:14+09:00",
+  "updated_at": "2026-11-13T15:15:40+09:00",
   "version": 1
 }
