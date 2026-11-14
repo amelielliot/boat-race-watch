@@ -1646,6 +1646,41 @@
       "status": "settled",
       "validation": true
     },
+    "20261114-04-12": {
+      "bets": {
+        "3T:1-2-5": {
+          "expected_value": 1.6194,
+          "odds": 32.4,
+          "probability": 0.04998261,
+          "stake": 700
+        },
+        "3T:1-2-6": {
+          "expected_value": 1.1989,
+          "odds": 30.8,
+          "probability": 0.0389247,
+          "stake": 600
+        },
+        "3T:1-5-2": {
+          "expected_value": 2.3623,
+          "odds": 49.8,
+          "probability": 0.04743537,
+          "stake": 700
+        }
+      },
+      "date": "2026-11-14",
+      "hit": null,
+      "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
+      "profit": null,
+      "race_number": 12,
+      "recorded_at": "2026-11-14T15:56:32.223291+09:00",
+      "return_amount": null,
+      "settled_at": null,
+      "source": "automatic",
+      "stadium_number": 4,
+      "stake": 2000,
+      "status": "pending",
+      "validation": true
+    },
     "20261114-08-06": {
       "bets": {
         "3T:1-2-4": {
@@ -1714,6 +1749,35 @@
       "stadium_number": 8,
       "stake": 2000,
       "status": "settled",
+      "validation": true
+    },
+    "20261114-09-12": {
+      "bets": {
+        "3T:1-4-3": {
+          "expected_value": 1.155,
+          "odds": 12.0,
+          "probability": 0.0962531,
+          "stake": 1500
+        },
+        "3T:1-5-4": {
+          "expected_value": 1.1714,
+          "odds": 41.0,
+          "probability": 0.02856983,
+          "stake": 500
+        }
+      },
+      "date": "2026-11-14",
+      "hit": null,
+      "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
+      "profit": null,
+      "race_number": 12,
+      "recorded_at": "2026-11-14T15:56:32.223291+09:00",
+      "return_amount": null,
+      "settled_at": null,
+      "source": "automatic",
+      "stadium_number": 9,
+      "stake": 2000,
+      "status": "pending",
       "validation": true
     },
     "20261114-10-09": {
@@ -2131,6 +2195,6 @@
       "validation": true
     }
   },
-  "updated_at": "2026-11-14T15:05:08+09:00",
+  "updated_at": "2026-11-14T15:57:08+09:00",
   "version": 1
 }
