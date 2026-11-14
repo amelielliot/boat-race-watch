@@ -1633,20 +1633,20 @@
         }
       },
       "date": "2026-11-14",
-      "hit": null,
+      "hit": false,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
-      "profit": null,
+      "profit": -2000,
       "race_number": 2,
       "recorded_at": "2026-11-14T09:04:32.749228+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 0,
+      "settled_at": "2026-11-14T09:35:42.620074+09:00",
       "source": "automatic",
       "stadium_number": 23,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     }
   },
-  "updated_at": "2026-11-14T09:04:50+09:00",
+  "updated_at": "2026-11-14T09:35:42+09:00",
   "version": 1
 }
