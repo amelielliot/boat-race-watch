@@ -2373,17 +2373,17 @@
         }
       },
       "date": "2026-11-15",
-      "hit": null,
+      "hit": false,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
-      "profit": null,
+      "profit": -2000,
       "race_number": 12,
       "recorded_at": "2026-11-15T15:47:09.402880+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 0,
+      "settled_at": "2026-11-15T16:18:10.351459+09:00",
       "source": "automatic",
       "stadium_number": 8,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     },
     "20261115-09-02": {
@@ -2583,17 +2583,17 @@
         }
       },
       "date": "2026-11-15",
-      "hit": null,
+      "hit": false,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
-      "profit": null,
+      "profit": -2000,
       "race_number": 11,
       "recorded_at": "2026-11-15T15:36:52.421602+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 0,
+      "settled_at": "2026-11-15T16:18:10.351459+09:00",
       "source": "automatic",
       "stadium_number": 16,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     },
     "20261115-18-09": {
@@ -2787,17 +2787,17 @@
         }
       },
       "date": "2026-11-15",
-      "hit": null,
+      "hit": true,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
-      "profit": null,
+      "profit": 12210,
       "race_number": 11,
       "recorded_at": "2026-11-15T15:36:52.421602+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 14210,
+      "settled_at": "2026-11-15T16:18:10.351459+09:00",
       "source": "automatic",
       "stadium_number": 22,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     },
     "20261115-23-05": {
@@ -2894,6 +2894,6 @@
       "validation": true
     }
   },
-  "updated_at": "2026-11-15T16:07:43+09:00",
+  "updated_at": "2026-11-15T16:18:10+09:00",
   "version": 1
 }
