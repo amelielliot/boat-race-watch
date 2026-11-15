@@ -2443,17 +2443,17 @@
         }
       },
       "date": "2026-11-15",
-      "hit": null,
+      "hit": false,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
-      "profit": null,
+      "profit": -2000,
       "race_number": 11,
       "recorded_at": "2026-11-15T15:16:15.340244+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 0,
+      "settled_at": "2026-11-15T16:07:42.497442+09:00",
       "source": "automatic",
       "stadium_number": 9,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     },
     "20261115-11-06": {
@@ -2513,17 +2513,17 @@
         }
       },
       "date": "2026-11-15",
-      "hit": null,
+      "hit": false,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
-      "profit": null,
+      "profit": -2000,
       "race_number": 11,
       "recorded_at": "2026-11-15T15:31:47.549911+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 0,
+      "settled_at": "2026-11-15T16:07:42.497442+09:00",
       "source": "automatic",
       "stadium_number": 13,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     },
     "20261115-16-03": {
@@ -2894,6 +2894,6 @@
       "validation": true
     }
   },
-  "updated_at": "2026-11-15T15:48:07+09:00",
+  "updated_at": "2026-11-15T16:07:43+09:00",
   "version": 1
 }
