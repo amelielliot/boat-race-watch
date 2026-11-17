@@ -3503,11 +3503,46 @@
         }
       },
       "date": "2026-11-17",
+      "hit": false,
+      "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
+      "profit": -2000,
+      "race_number": 9,
+      "recorded_at": "2026-11-17T14:24:41.283522+09:00",
+      "return_amount": 0,
+      "settled_at": "2026-11-17T14:55:23.421339+09:00",
+      "source": "automatic",
+      "stadium_number": 4,
+      "stake": 2000,
+      "status": "settled",
+      "validation": true
+    },
+    "20261117-04-10": {
+      "bets": {
+        "3T:1-2-3": {
+          "expected_value": 1.1878,
+          "odds": 12.8,
+          "probability": 0.09279598,
+          "stake": 900
+        },
+        "3T:1-2-5": {
+          "expected_value": 2.2617,
+          "odds": 42.4,
+          "probability": 0.05334137,
+          "stake": 500
+        },
+        "3T:1-2-6": {
+          "expected_value": 1.5822,
+          "odds": 24.1,
+          "probability": 0.06565279,
+          "stake": 600
+        }
+      },
+      "date": "2026-11-17",
       "hit": null,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
       "profit": null,
-      "race_number": 9,
-      "recorded_at": "2026-11-17T14:24:41.283522+09:00",
+      "race_number": 10,
+      "recorded_at": "2026-11-17T14:55:23.421339+09:00",
       "return_amount": null,
       "settled_at": null,
       "source": "automatic",
@@ -3608,17 +3643,17 @@
         }
       },
       "date": "2026-11-17",
-      "hit": null,
+      "hit": false,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
-      "profit": null,
+      "profit": -2000,
       "race_number": 9,
       "recorded_at": "2026-11-17T14:19:25.239589+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 0,
+      "settled_at": "2026-11-17T14:55:23.421339+09:00",
       "source": "automatic",
       "stadium_number": 11,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     },
     "20261117-13-03": {
@@ -3791,6 +3826,6 @@
       "validation": true
     }
   },
-  "updated_at": "2026-11-17T14:30:00+09:00",
+  "updated_at": "2026-11-17T14:55:44+09:00",
   "version": 1
 }
