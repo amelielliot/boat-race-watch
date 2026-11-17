@@ -3446,6 +3446,41 @@
       "status": "settled",
       "validation": true
     },
+    "20261117-08-02": {
+      "bets": {
+        "3T:1-2-4": {
+          "expected_value": 1.1863,
+          "odds": 12.4,
+          "probability": 0.09566772,
+          "stake": 1100
+        },
+        "3T:1-4-2": {
+          "expected_value": 1.6105,
+          "odds": 27.9,
+          "probability": 0.05772288,
+          "stake": 600
+        },
+        "3T:1-4-3": {
+          "expected_value": 1.188,
+          "odds": 39.2,
+          "probability": 0.03030514,
+          "stake": 300
+        }
+      },
+      "date": "2026-11-17",
+      "hit": null,
+      "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
+      "profit": null,
+      "race_number": 2,
+      "recorded_at": "2026-11-17T10:36:46.113667+09:00",
+      "return_amount": null,
+      "settled_at": null,
+      "source": "automatic",
+      "stadium_number": 8,
+      "stake": 2000,
+      "status": "pending",
+      "validation": true
+    },
     "20261117-17-01": {
       "bets": {
         "3T:1-2-6": {
@@ -3468,20 +3503,20 @@
         }
       },
       "date": "2026-11-17",
-      "hit": null,
+      "hit": false,
       "model_version": "conditional-logit-v2-3t@426317dd8f732d1d+trifecta-hit-v1",
-      "profit": null,
+      "profit": -2000,
       "race_number": 1,
       "recorded_at": "2026-11-17T10:05:54.819728+09:00",
-      "return_amount": null,
-      "settled_at": null,
+      "return_amount": 0,
+      "settled_at": "2026-11-17T10:36:46.113667+09:00",
       "source": "automatic",
       "stadium_number": 17,
       "stake": 2000,
-      "status": "pending",
+      "status": "settled",
       "validation": true
     }
   },
-  "updated_at": "2026-11-17T10:06:34+09:00",
+  "updated_at": "2026-11-17T10:37:05+09:00",
   "version": 1
 }
